@@ -1,0 +1,1853 @@
+/* ============================================================
+   ULTRA-DARK PREMIUM THEME — Inspired by luxury dark dashboards
+   Background: #050505  |  Cards: #0a0a0a  |  Borders: #1a1a1a
+   Accent: Orange #f5a623  |  Success: #22c55e
+   ============================================================ */
+
+/* Layout */
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #131313;
+}
+
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 20px;
+  width: 100%;
+}
+
+/* ============================================================
+   NAVBAR
+   ============================================================ */
+.navbar {
+  background: rgba(19, 19, 19, 0.80);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+}
+
+.navbar-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  height: 60px;
+  gap: 6px;
+}
+
+.navbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: #f0f0f0;
+  font-weight: 800;
+  font-size: 20px;
+  margin-right: 28px;
+  flex-shrink: 0;
+  letter-spacing: -0.3px;
+}
+
+.navbar-logo .logo-icon {
+  width: 34px;
+  height: 34px;
+  background: linear-gradient(135deg, #f5a623 0%, #e8930c 100%);
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  box-shadow: 0 0 20px rgba(245, 166, 35, 0.25);
+}
+
+.nav-links {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  flex: 1;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #555;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.25s ease;
+  border: 1px solid transparent;
+}
+
+.nav-link:hover {
+  color: #999;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.nav-link.active {
+  color: #f5a623;
+  background: rgba(245, 166, 35, 0.06);
+  border-color: rgba(245, 166, 35, 0.15);
+  box-shadow: 0 0 15px rgba(245, 166, 35, 0.08);
+}
+
+.nav-link svg {
+  width: 15px;
+  height: 15px;
+}
+
+.health-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.health-dot.connected {
+  background: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.6);
+}
+
+.health-dot.error {
+  background: #ef4444;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+}
+
+.health-dot.checking {
+  background: #f5a623;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ============================================================
+   HERO / PAGE HEADERS
+   ============================================================ */
+.page-hero {
+  text-align: center;
+  padding: 40px 0 28px;
+}
+
+.page-hero h1 {
+  font-family: 'Manrope', sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  color: #e5e2e1;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.page-hero p {
+  color: #444;
+  font-size: 15px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+/* ============================================================
+   SEARCH PANEL — Glass morphism dark
+   ============================================================ */
+.search-panel {
+  background: rgba(12, 12, 12, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 1px 0 rgba(255, 255, 255, 0.03) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.2) inset;
+}
+
+/* Subtle top glow line */
+.search-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(245, 166, 35, 0.3), transparent);
+}
+
+.search-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 140px;
+}
+
+.input-group label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.input-group input,
+.input-group select {
+  background: #111111;
+  border: 1px solid #1e1e1e;
+  border-radius: 10px;
+  padding: 12px 16px;
+  color: #d0d0d0;
+  font-size: 15px;
+  font-family: inherit;
+  transition: all 0.25s ease;
+  outline: none;
+}
+
+.input-group input:focus,
+.input-group select:focus {
+  border-color: #f5a623;
+  box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.08), 0 0 20px rgba(245, 166, 35, 0.05);
+}
+
+.input-group input::placeholder {
+  color: #333;
+}
+
+.input-group select option {
+  background: #0a0a0a;
+  color: #d0d0d0;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #f5a623;
+  cursor: pointer;
+}
+
+.checkbox-group label {
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+}
+
+/* ============================================================
+   BUTTONS — Glowing orange accent
+   ============================================================ */
+.btn-primary {
+  background: linear-gradient(135deg, #f5a623 0%, #e8930c 100%);
+  color: #000;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 28px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  box-shadow: 0 0 20px rgba(245, 166, 35, 0.2);
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 35px rgba(245, 166, 35, 0.35);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-secondary {
+  background: rgba(245, 166, 35, 0.06);
+  color: #f5a623;
+  border: 1px solid rgba(245, 166, 35, 0.15);
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.btn-secondary:hover {
+  background: rgba(245, 166, 35, 0.1);
+  box-shadow: 0 0 15px rgba(245, 166, 35, 0.1);
+}
+
+.sort-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.sort-btn {
+  background: #0d0d0d;
+  border: 1px solid #1a1a1a;
+  color: #555;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.sort-btn:hover {
+  border-color: #333;
+  color: #888;
+}
+
+.sort-btn.active {
+  background: rgba(245, 166, 35, 0.08);
+  border-color: rgba(245, 166, 35, 0.25);
+  color: #f5a623;
+  box-shadow: 0 0 15px rgba(245, 166, 35, 0.08);
+}
+
+/* ============================================================
+   STATUS BADGES — Glowing (like screenshot)
+   ============================================================ */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 18px;
+  border-radius: 22px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  letter-spacing: 0.3px;
+}
+
+.status-badge.pending {
+  background: rgba(255, 179, 0, 0.20);
+  border-color: rgba(255, 179, 0, 0.40);
+  color: #FFB300;
+  box-shadow: 0 0 15px 1px rgba(255, 179, 0, 0.4);
+  text-transform: uppercase;
+  letter-spacing: -0.3px;
+}
+
+.status-badge.pending::before {
+  content: '✦';
+  animation: spin-slow 3s linear infinite;
+}
+
+.status-badge.success {
+  background: rgba(0, 255, 150, 0.20);
+  border-color: rgba(0, 255, 150, 0.40);
+  color: #00FF96;
+  box-shadow: 0 0 15px 1px rgba(0, 255, 150, 0.35);
+  text-transform: uppercase;
+  letter-spacing: -0.3px;
+}
+
+.status-badge.success::before {
+  content: '✓';
+  font-weight: 900;
+}
+
+.status-badge.error {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(239, 68, 68, 0.18);
+  color: #ef4444;
+  box-shadow:
+    0 0 25px rgba(239, 68, 68, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(239, 68, 68, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+}
+
+.status-badge.error::before {
+  content: '✕';
+}
+
+.status-badge.critical {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  box-shadow:
+    0 0 25px rgba(239, 68, 68, 0.15),
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(239, 68, 68, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+}
+
+.status-badge.critical::before {
+  content: '!';
+  font-weight: 900;
+}
+
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================
+   FLIGHT CARDS — Premium dark rows
+   ============================================================ */
+.flight-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.flight-card {
+  background: #0a0a0a;
+  border: 1px solid #141414;
+  border-radius: 12px;
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  transition: all 0.3s ease;
+  cursor: default;
+  position: relative;
+  overflow: hidden;
+}
+
+.flight-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(245, 166, 35, 0.15), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.flight-card:hover {
+  border-color: #1e1e1e;
+  background: #0d0d0d;
+}
+
+.flight-card:hover::before {
+  opacity: 1;
+}
+
+.flight-airline {
+  min-width: 130px;
+}
+
+.airline-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #c0c0c0;
+  margin-bottom: 3px;
+}
+
+.airline-code {
+  font-size: 11px;
+  color: #444;
+  font-weight: 500;
+}
+
+.flight-route {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.flight-time {
+  text-align: center;
+}
+
+.flight-time .time {
+  font-size: 22px;
+  font-weight: 800;
+  color: #e8e8e8;
+  letter-spacing: -0.5px;
+}
+
+.flight-time .airport {
+  font-size: 11px;
+  color: #444;
+  margin-top: 2px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.flight-path {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.flight-path .duration {
+  font-size: 12px;
+  color: #555;
+  font-weight: 500;
+}
+
+.flight-path .line {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, #333, #f5a623, #333);
+  position: relative;
+}
+
+.flight-path .line::after {
+  content: '→';
+  position: absolute;
+  right: -2px;
+  top: -9px;
+  font-size: 14px;
+  color: #f5a623;
+}
+
+.flight-path .stops {
+  font-size: 11px;
+  color: #22c55e;
+  font-weight: 600;
+}
+
+.flight-path .stops.has-stops {
+  color: #f5a623;
+}
+
+.flight-price {
+  text-align: right;
+  min-width: 100px;
+}
+
+.flight-price .price {
+  font-size: 26px;
+  font-weight: 900;
+  color: #f5a623;
+  letter-spacing: -1px;
+  text-shadow: 0 0 30px rgba(245, 166, 35, 0.2);
+}
+
+.flight-price .price-label {
+  font-size: 11px;
+  color: #444;
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+.flight-tags {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  letter-spacing: 0.3px;
+}
+
+.tag-nonstop {
+  background: rgba(34, 197, 94, 0.06);
+  border-color: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.05);
+}
+
+.tag-refundable {
+  background: rgba(59, 130, 246, 0.06);
+  border-color: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.05);
+}
+
+.tag-basic {
+  background: rgba(245, 166, 35, 0.06);
+  border-color: rgba(245, 166, 35, 0.2);
+  color: #f5a623;
+}
+
+.tag-seats {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+/* ============================================================
+   LOADING / ERRORS / EMPTY STATES
+   ============================================================ */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  gap: 20px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 2px solid #1a1a1a;
+  border-top-color: #f5a623;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  box-shadow: 0 0 20px rgba(245, 166, 35, 0.15);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  color: #444;
+  font-size: 14px;
+  text-align: center;
+}
+
+.loading-text .warning {
+  display: block;
+  margin-top: 8px;
+  color: #f5a623;
+  font-size: 12px;
+}
+
+.error-banner {
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  border-radius: 12px;
+  padding: 14px 20px;
+  color: #ef4444;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #333;
+}
+
+.empty-state .icon {
+  font-size: 44px;
+  margin-bottom: 16px;
+  opacity: 0.4;
+}
+
+.empty-state h3 {
+  font-size: 17px;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 8px;
+}
+
+.empty-state p {
+  font-size: 13px;
+  color: #444;
+}
+
+.result-count {
+  font-size: 13px;
+  color: #444;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.result-count strong {
+  color: #f5a623;
+}
+
+/* ============================================================
+   CHARTS CONTAINER
+   ============================================================ */
+.chart-container {
+  background: rgba(10, 10, 10, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 14px;
+  padding: 24px;
+  margin-top: 16px;
+  position: relative;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.02) inset;
+}
+
+.chart-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(245, 166, 35, 0.2), transparent);
+}
+
+.chart-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #c0c0c0;
+  margin-bottom: 20px;
+}
+
+/* ============================================================
+   DATA TABLE — Premium dark rows
+   ============================================================ */
+.data-table-wrapper {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  margin-top: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.02) inset;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 6px;
+  font-size: 13px;
+}
+
+.data-table th {
+  background: transparent;
+  color: #555;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 12px 20px;
+  text-align: left;
+  border-bottom: none;
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 20px 20px;
+  border-bottom: none;
+  color: #888;
+  white-space: nowrap;
+  background: rgba(28, 27, 27, 0.4);
+  backdrop-filter: blur(12px);
+}
+
+.data-table td:first-child {
+  border-radius: 12px 0 0 12px;
+}
+
+.data-table td:last-child {
+  border-radius: 0 12px 12px 0;
+}
+
+.data-table tr {
+  transition: all 0.2s;
+}
+
+.data-table tbody tr {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.data-table tbody tr:hover td {
+  background: rgba(53, 53, 52, 0.6);
+}
+
+.data-table .fare-cell {
+  font-weight: 700;
+  color: #f5a623;
+}
+
+/* ============================================================
+   AIRPORT CARDS
+   ============================================================ */
+.airport-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 12px;
+}
+
+.airport-card {
+  background: rgba(10, 10, 10, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 14px;
+  padding: 20px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3), 0 1px 0 rgba(255, 255, 255, 0.02) inset;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.airport-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(245, 166, 35, 0.2), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.airport-card:hover {
+  border-color: #1e1e1e;
+}
+
+.airport-card:hover::before {
+  opacity: 1;
+}
+
+.airport-card .airport-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.airport-card .iata-badge {
+  background: linear-gradient(135deg, #f5a623 0%, #e8930c 100%);
+  color: #000;
+  font-weight: 900;
+  font-size: 14px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  min-width: 52px;
+  text-align: center;
+  box-shadow: 0 0 15px rgba(245, 166, 35, 0.2);
+  letter-spacing: 0.5px;
+}
+
+.airport-card .airport-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #c0c0c0;
+}
+
+.airport-card .airport-location {
+  font-size: 12px;
+  color: #555;
+}
+
+.airport-card .airport-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.airport-card .detail-item {
+  font-size: 12px;
+}
+
+.airport-card .detail-item .detail-label {
+  color: #444;
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.airport-card .detail-item .detail-value {
+  color: #888;
+  font-weight: 500;
+}
+
+.airport-card .airport-links {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.airport-card .airport-links a {
+  font-size: 12px;
+  color: #f5a623;
+  text-decoration: none;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.airport-card .airport-links a:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* ============================================================
+   CHATBOT — Dark glass
+   ============================================================ */
+.chat-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.chat-message {
+  display: flex;
+  gap: 12px;
+  max-width: 90%;
+}
+
+.chat-message.user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.chat-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 15px;
+}
+
+.chat-message.bot .chat-avatar {
+  background: linear-gradient(135deg, #f5a623, #e8930c);
+  box-shadow: 0 0 15px rgba(245, 166, 35, 0.2);
+}
+
+.chat-message.user .chat-avatar {
+  background: #1a1a1a;
+}
+
+.chat-bubble {
+  background: #0a0a0a;
+  border: 1px solid #1a1a1a;
+  border-radius: 14px;
+  padding: 14px 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #999;
+}
+
+.chat-message.user .chat-bubble {
+  background: rgba(245, 166, 35, 0.06);
+  border-color: rgba(245, 166, 35, 0.12);
+  color: #c0c0c0;
+}
+
+.chat-sql {
+  background: #060606;
+  border: 1px solid #1a1a1a;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-top: 10px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  color: #f5a623;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-x: auto;
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 12px;
+}
+
+.chat-input-row input {
+  flex: 1;
+  background: #0a0a0a;
+  border: 1px solid #1a1a1a;
+  border-radius: 12px;
+  padding: 14px 18px;
+  color: #d0d0d0;
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.25s;
+}
+
+.chat-input-row input:focus {
+  border-color: rgba(245, 166, 35, 0.3);
+  box-shadow: 0 0 20px rgba(245, 166, 35, 0.05);
+}
+
+/* ============================================================
+   DESTINATION CARDS (Where to Fly)
+   ============================================================ */
+.dest-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.dest-card {
+  background: rgba(10, 10, 10, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 14px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3), 0 1px 0 rgba(255, 255, 255, 0.02) inset;
+  padding: 20px;
+  text-align: center;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.dest-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(245, 166, 35, 0.3), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.dest-card:hover {
+  border-color: #1e1e1e;
+}
+
+.dest-card:hover::before {
+  opacity: 1;
+}
+
+.dest-card .dest-airport {
+  font-size: 24px;
+  font-weight: 900;
+  color: #c0c0c0;
+  margin-bottom: 4px;
+  letter-spacing: 1px;
+}
+
+.dest-card .dest-price {
+  font-size: 30px;
+  font-weight: 900;
+  color: #f5a623;
+  margin: 8px 0;
+  text-shadow: 0 0 30px rgba(245, 166, 35, 0.2);
+  letter-spacing: -1px;
+}
+
+.dest-card .dest-price span {
+  font-size: 13px;
+  font-weight: 400;
+  color: #444;
+}
+
+.dest-card .dest-avg {
+  font-size: 12px;
+  color: #444;
+}
+
+.dest-card .dest-count {
+  font-size: 11px;
+  color: #333;
+  margin-top: 4px;
+}
+
+.dest-card .rank-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(245, 166, 35, 0.08);
+  border: 1px solid rgba(245, 166, 35, 0.15);
+  color: #f5a623;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================================
+   AIRLINE COMPARISON CARDS
+   ============================================================ */
+.airline-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.airline-card {
+  background: rgba(10, 10, 10, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3), 0 1px 0 rgba(255, 255, 255, 0.02) inset;
+  border-radius: 14px;
+  padding: 20px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.airline-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(245, 166, 35, 0.2), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.airline-card:hover {
+  border-color: #1e1e1e;
+}
+
+.airline-card:hover::before {
+  opacity: 1;
+}
+
+.airline-card .airline-card-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #c0c0c0;
+  margin-bottom: 14px;
+}
+
+.airline-card .price-range {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.airline-card .price-item {
+  text-align: center;
+}
+
+.airline-card .price-item .price-label {
+  font-size: 10px;
+  color: #444;
+  display: block;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.airline-card .price-item .price-value {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.airline-card .price-item .price-value.min {
+  color: #22c55e;
+  text-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
+}
+
+.airline-card .price-item .price-value.avg {
+  color: #f5a623;
+  text-shadow: 0 0 20px rgba(245, 166, 35, 0.2);
+}
+
+.airline-card .price-item .price-value.max {
+  color: #ef4444;
+  text-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+}
+
+.airline-card .flight-count-bar {
+  margin-top: 12px;
+  font-size: 11px;
+  color: #444;
+}
+
+/* ============================================================
+   STAT SUMMARY CARDS — Midnight Voyager style
+   ============================================================ */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.stat-card {
+  background: #1c1b1b;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+  padding: 28px 28px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25), 0 1px 0 rgba(255, 255, 255, 0.02) inset;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.stat-card .stat-icon {
+  font-size: 18px;
+  margin-bottom: 12px;
+  color: #f5a623;
+}
+
+.stat-card .stat-value {
+  font-family: 'Manrope', sans-serif;
+  font-size: 30px;
+  font-weight: 800;
+  color: #e5e2e1;
+  letter-spacing: -0.5px;
+  margin-bottom: 4px;
+}
+
+.stat-card .stat-label {
+  font-size: 13px;
+  color: #555;
+  font-weight: 500;
+}
+
+/* Manage button */
+.manage-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'Manrope', sans-serif;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.manage-btn:hover {
+  color: #FFB300;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* ============================================================
+   QUERY DEBUG
+   ============================================================ */
+.query-debug {
+  margin-top: 24px;
+}
+
+.query-toggle {
+  font-size: 12px;
+  color: #444;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+  transition: color 0.2s;
+}
+
+.query-toggle:hover {
+  color: #666;
+}
+
+.query-code {
+  background: #060606;
+  border: 1px solid #141414;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-top: 8px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  color: #f5a623;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+
+/* ============================================================
+   LANDING PAGE — Midnight Voyager Hero
+   ============================================================ */
+.landing {
+  background: #131313;
+  min-height: 100vh;
+}
+
+/* Hero */
+.landing-hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(255, 179, 0, 0.06) 0%, transparent 60%),
+    linear-gradient(180deg, #0e0e0e 0%, #131313 40%, #131313 100%);
+  z-index: 0;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 0 24px;
+  width: 100%;
+  max-width: 900px;
+}
+
+.hero-title {
+  font-family: 'Manrope', sans-serif;
+  font-size: clamp(48px, 8vw, 80px);
+  font-weight: 800;
+  letter-spacing: 12px;
+  color: #ffd79b;
+  margin-bottom: 16px;
+  line-height: 1.1;
+  text-shadow: 0 0 60px rgba(255, 179, 0, 0.15);
+}
+
+.hero-subtitle {
+  font-size: 13px;
+  letter-spacing: 6px;
+  color: rgba(229, 226, 225, 0.4);
+  margin-bottom: 48px;
+  font-weight: 500;
+}
+
+/* Hero Search Bar */
+.hero-search {
+  display: flex;
+  align-items: center;
+  background: rgba(28, 27, 27, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 6px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+}
+
+.hero-search-field {
+  flex: 1;
+  padding: 14px 20px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-radius: 10px;
+}
+
+.hero-search-field:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.hsf-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: rgba(229, 226, 225, 0.5);
+  margin-bottom: 6px;
+  font-family: 'Manrope', sans-serif;
+}
+
+.hsf-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #e5e2e1;
+  font-weight: 500;
+}
+
+.hsf-icon {
+  color: #FFB300;
+  flex-shrink: 0;
+}
+
+.hero-search-divider {
+  width: 1px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.hero-search-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #FFB300;
+  color: #000;
+  border: none;
+  border-radius: 10px;
+  padding: 16px 28px;
+  font-size: 12px;
+  font-weight: 800;
+  font-family: 'Manrope', sans-serif;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.25s;
+  box-shadow: 0 0 25px rgba(255, 179, 0, 0.3);
+}
+
+.hero-search-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 40px rgba(255, 179, 0, 0.45);
+}
+
+/* Scroll indicator */
+.hero-scroll {
+  position: absolute;
+  bottom: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  z-index: 1;
+}
+
+.hero-scroll-text {
+  font-size: 10px;
+  letter-spacing: 4px;
+  color: rgba(229, 226, 225, 0.3);
+  font-weight: 600;
+}
+
+.hero-scroll-line {
+  width: 1px;
+  height: 40px;
+  background: linear-gradient(180deg, rgba(255, 179, 0, 0.4), transparent);
+  animation: scroll-pulse 2s ease-in-out infinite;
+}
+
+@keyframes scroll-pulse {
+  0%, 100% { opacity: 0.3; height: 30px; }
+  50% { opacity: 1; height: 50px; }
+}
+
+/* Stats */
+.landing-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 80px 24px;
+  gap: 20px;
+}
+
+.landing-stat {
+  text-align: center;
+}
+
+.ls-value {
+  font-family: 'Manrope', sans-serif;
+  font-size: 40px;
+  font-weight: 800;
+  color: #ffd79b;
+  letter-spacing: -1px;
+  text-shadow: 0 0 30px rgba(255, 179, 0, 0.15);
+}
+
+.ls-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(229, 226, 225, 0.35);
+  margin-top: 6px;
+}
+
+/* Destinations */
+.landing-destinations {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+}
+
+.ld-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 28px;
+}
+
+.ld-tag {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: #FFB300;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.ld-title {
+  font-family: 'Manrope', sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  color: #e5e2e1;
+  letter-spacing: -0.5px;
+}
+
+.ld-arrows {
+  display: flex;
+  gap: 8px;
+}
+
+.ld-arrow {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: #888;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+
+.ld-arrow:hover {
+  border-color: #FFB300;
+  color: #FFB300;
+}
+
+.ld-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+/* Destination Hero Card */
+.dest-hero-card {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  height: 380px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.4s ease;
+}
+
+.dest-hero-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 179, 0, 0.2);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.dhc-img {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: transform 0.6s ease;
+}
+
+.dest-hero-card:hover .dhc-img {
+  transform: scale(1.05);
+}
+
+.dhc-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.2) 50%, rgba(0, 0, 0, 0.1) 100%);
+}
+
+.dhc-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 24px;
+  z-index: 1;
+}
+
+.dhc-city {
+  font-family: 'Manrope', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: #e5e2e1;
+  margin-bottom: 2px;
+}
+
+.dhc-country {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: rgba(229, 226, 225, 0.5);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.dhc-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dhc-price {
+  font-family: 'Manrope', sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  color: #FFB300;
+  letter-spacing: 0.5px;
+}
+
+.dhc-arrow {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  transition: all 0.25s;
+}
+
+.dest-hero-card:hover .dhc-arrow {
+  border-color: #FFB300;
+  color: #FFB300;
+  box-shadow: 0 0 15px rgba(255, 179, 0, 0.2);
+}
+
+/* Features */
+.landing-features {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+}
+
+.lf-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.lf-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.lf-card {
+  background: #1c1b1b;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+  padding: 28px 24px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.lf-card:hover {
+  border-color: rgba(255, 179, 0, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.lf-icon {
+  color: #FFB300;
+  margin-bottom: 16px;
+}
+
+.lf-card h3 {
+  font-family: 'Manrope', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: #e5e2e1;
+  margin-bottom: 8px;
+}
+
+.lf-card p {
+  font-size: 13px;
+  color: rgba(229, 226, 225, 0.4);
+  line-height: 1.5;
+}
+
+/* Footer */
+.landing-footer {
+  border-top: 1px solid rgba(53, 53, 52, 0.2);
+  padding: 40px 48px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.lfoot-brand {
+  font-family: 'Manrope', sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  color: #FFB300;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.lfoot-copy {
+  font-size: 11px;
+  color: rgba(229, 226, 225, 0.3);
+}
+
+.lfoot-links {
+  display: flex;
+  gap: 32px;
+}
+
+.lfoot-links a {
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: rgba(229, 226, 225, 0.3);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.lfoot-links a:hover {
+  color: #ffd79b;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 768px) {
+  .navbar-inner {
+    overflow-x: auto;
+  }
+  
+  .search-row {
+    flex-direction: column;
+  }
+  
+  .flight-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .flight-route {
+    flex-direction: column;
+  }
+  
+  .flight-price {
+    text-align: left;
+    border-top: 1px solid #141414;
+    padding-top: 12px;
+  }
+
+  .page-hero h1 {
+    font-size: 24px;
+  }
+
+  /* Landing responsive */
+  .hero-search {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .hero-search-divider {
+    width: 100%;
+    height: 1px;
+  }
+
+  .hero-search-btn {
+    width: 100%;
+    justify-content: center;
+    margin-top: 4px;
+  }
+
+  .landing-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+  }
+
+  .ld-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lf-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .landing-footer {
+    flex-direction: column;
+    gap: 20px;
+    text-align: center;
+    padding: 30px 24px;
+  }
+
+  .lfoot-links {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+}
