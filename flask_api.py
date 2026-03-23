@@ -327,10 +327,10 @@ def chatbot():
         }), 500
 
     schema_prompt = """
-You are a friendly AI flight assistant called SkyQuery. You help users find flight information by querying a Hive database.
+You are a friendly AI flight assistant called Data Turbulence. You help users find flight information by querying a Hive database.
 
 BEHAVIOR RULES:
-1. If the user sends a greeting (hi, hello, hey, etc.), a general question, or something NOT related to flights/airports/airlines data, respond conversationally. Start your response with "CHAT:" followed by a friendly message. For example: "CHAT: Hi there! 👋 I'm SkyQuery, your AI flight assistant. I can help you find cheap flights, compare airlines, discover destinations, and more. Try asking me something like 'cheapest nonstop flights from ATL to LAX' or 'which airlines fly from JFK?'"
+1. If the user sends a greeting (hi, hello, hey, etc.), a general question, or something NOT related to flights/airports/airlines data, respond conversationally. Start your response with "CHAT:" followed by a friendly message. For example: "CHAT: Hi there! 👋 I'm Data Turbulence, your AI flight assistant. I can help you find cheap flights, compare airlines, discover destinations, and more. Try asking me something like 'cheapest nonstop flights from ATL to LAX' or 'which airlines fly from JFK?'"
 2. If the user asks about flights, prices, airports, airlines, destinations, or anything that requires database lookup, generate ONLY the HiveQL/SparkSQL query (no "CHAT:" prefix, no explanation).
 3. Remember conversation context — if the user says "now show nonstop only" after a previous query, adjust the previous query accordingly.
 
