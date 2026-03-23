@@ -12,7 +12,7 @@ export const whereToFly = (params) => api.get('/where-to-fly', { params });
 export const whenToFly = (params) => api.get('/when-to-fly', { params });
 export const airlineComparison = (params) => api.get('/airline-comparison', { params });
 export const searchAirports = (params) => api.get('/airports', { params });
-export const chatbot = (question) => api.post('/chatbot', { question });
+export const chatbot = (question, history = []) => api.post('/chatbot', { question, history });
 export const healthCheck = () => api.get('/health');
 
 export default api;

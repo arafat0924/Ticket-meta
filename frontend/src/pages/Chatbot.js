@@ -39,8 +39,16 @@ function Chatbot() {
       // Add user message to actual state
       setMessages(prev => [...prev, { role: 'user', text: question }]);
 
+      // Build conversation history (last 10 messages) for context
+      const history = [...messages, { role: 'user', text: question }]
+        .slice(-10)
+        .map(m => ({
+          role: m.role === 'bot' ? 'assistant' : 'user',
+          content: m.text + (m.sql ? `\n[SQL: ${m.sql}]` : '')
+        }));
+
       try {
-        const res = await chatbot(question);
+        const res = await chatbot(question, history);
         const data = res.data;
         setMessages(prev => [
           ...prev,
