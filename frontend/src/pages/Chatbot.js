@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useTransition, useOptimistic, useCallback } from 'react';
-import { Send } from 'lucide-react';
+import { Send, Bot, User } from 'lucide-react';
 import { chatbot } from '../api';
 
 function Chatbot() {
@@ -119,7 +119,7 @@ function Chatbot() {
       <title>AI Flight Assistant — SkyQuery</title>
 
       <div className="page-hero">
-        <h1>🤖 AI Flight Assistant</h1>
+        <h1><Bot size={32} style={{ display: 'inline', verticalAlign: 'middle' }} /> AI Flight Assistant</h1>
         <p>Ask questions in natural language — powered by OpenAI + Hive</p>
       </div>
 
@@ -137,7 +137,7 @@ function Chatbot() {
         <div className="chat-messages">
           {optimisticMessages.map((msg, i) => (
             <div key={i} className={`chat-message ${msg.role}`}>
-              <div className="chat-avatar">{msg.role === 'bot' ? '🤖' : '👤'}</div>
+              <div className="chat-avatar">{msg.role === 'bot' ? <Bot size={18} /> : <User size={18} />}</div>
               <div>
                 <div className="chat-bubble">
                   {msg.text}
@@ -149,7 +149,7 @@ function Chatbot() {
           ))}
           {isPending && (
             <div className="chat-message bot">
-              <div className="chat-avatar">🤖</div>
+              <div className="chat-avatar"><Bot size={18} /></div>
               <div className="chat-bubble">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div className="spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
