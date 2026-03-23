@@ -298,7 +298,7 @@ def airports():
 
 
 # ---------------------------------------------------------------------------
-# 6. AI Chatbot  (Text-to-SQL via OpenAI)
+# 6. AI Chatbot  (Text-to-SQL via DeepSeek AI)
 #    POST /api/chatbot  {"question": "cheapest flights from ATL"}
 # ---------------------------------------------------------------------------
 @app.route("/api/chatbot", methods=["POST"])
@@ -314,14 +314,15 @@ def chatbot():
     except ImportError:
         return jsonify({
             "error": "openai package not installed. Run: pip install openai",
-            "answer": "OpenAI is not configured on the server."
+            "answer": "AI assistant is not configured on the server."
         }), 500
 
-    api_key = os.environ.get("OPENAI_API_KEY", "")
+    # DeepSeek API configuration
+    api_key = os.environ.get("DEEPSEEK_API_KEY", "sk-ebc20963bcba441e91e7917fc616a097")
     if not api_key:
         return jsonify({
-            "error": "OPENAI_API_KEY environment variable not set",
-            "answer": "OpenAI API key is not configured on the server."
+            "error": "DEEPSEEK_API_KEY not set",
+            "answer": "DeepSeek API key is not configured on the server."
         }), 500
 
     schema_prompt = """
@@ -359,9 +360,12 @@ Given a user question, generate ONLY the HiveQL/SparkSQL query. No explanation.
 
     sql = ""
     try:
-        client = openai.OpenAI(api_key=api_key)
+        client = openai.OpenAI(
+            api_key=api_key,
+            base_url="https://api.deepseek.com"
+        )
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="deepseek-chat",
             messages=[
                 {"role": "system", "content": schema_prompt},
                 {"role": "user", "content": question}
