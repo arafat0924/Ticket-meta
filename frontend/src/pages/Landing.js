@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowUpRight, Plus, Mic, Volume2, ArrowUp, Star,
-  X, Facebook, Twitter, Instagram, Linkedin, Plane
+  X, Facebook, Twitter, Instagram, Linkedin, Plane,
+  Search, MapPin, Calendar, BarChart3, MessageSquare, Building2
 } from 'lucide-react';
 
 // Scroll-triggered animation hook
@@ -93,16 +94,17 @@ function Landing() {
       <nav className="tl-nav">
         <div className="tl-nav-inner">
           <div className="tl-nav-logo" onClick={() => navigate('/')}>
+            <div className="tl-logo-icon"><Plane size={16} /></div>
             <span className="tl-logo-text">Data Turbulence</span>
           </div>
           <div className="tl-nav-links">
-            <a href="#hero" className="tl-nav-link active">Home</a>
-            <span className="tl-nav-link" onClick={() => navigate('/flights')}>Flights</span>
-            <span className="tl-nav-link" onClick={() => navigate('/where-to-fly')}>Where to Fly</span>
-            <span className="tl-nav-link" onClick={() => navigate('/when-to-fly')}>When to Fly</span>
-            <span className="tl-nav-link" onClick={() => navigate('/airline-comparison')}>Airlines</span>
-            <span className="tl-nav-link" onClick={() => navigate('/chatbot')}>AI Chat</span>
-            <span className="tl-nav-link" onClick={() => navigate('/airports')}>Airports</span>
+            <a href="#hero" className="tl-nav-link active"><Plane size={14} /> Home</a>
+            <span className="tl-nav-link" onClick={() => navigate('/flights')}><Search size={14} /> Flights</span>
+            <span className="tl-nav-link" onClick={() => navigate('/where-to-fly')}><MapPin size={14} /> Where to Fly</span>
+            <span className="tl-nav-link" onClick={() => navigate('/when-to-fly')}><Calendar size={14} /> When to Fly</span>
+            <span className="tl-nav-link" onClick={() => navigate('/airline-comparison')}><BarChart3 size={14} /> Airlines</span>
+            <span className="tl-nav-link" onClick={() => navigate('/chatbot')}><MessageSquare size={14} /> AI Chat</span>
+            <span className="tl-nav-link" onClick={() => navigate('/airports')}><Building2 size={14} /> Airports</span>
           </div>
         </div>
       </nav>
