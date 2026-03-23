@@ -120,7 +120,7 @@ function Chatbot() {
 
       <div className="page-hero">
         <h1><Bot size={32} style={{ display: 'inline', verticalAlign: 'middle' }} /> AI Flight Assistant</h1>
-        <p>Ask questions in natural language — powered by OpenAI + Hive</p>
+        <p>Ask questions in natural language — powered by DeepSeek AI + Hive</p>
       </div>
 
       <div className="chat-container">
