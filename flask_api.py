@@ -327,7 +327,14 @@ def chatbot():
         }), 500
 
     schema_prompt = """
-You are a SQL assistant for Apache Hive / Spark SQL. The database is ticketmeta09.
+You are a friendly AI flight assistant called SkyQuery. You help users find flight information by querying a Hive database.
+
+BEHAVIOR RULES:
+1. If the user sends a greeting (hi, hello, hey, etc.), a general question, or something NOT related to flights/airports/airlines data, respond conversationally. Start your response with "CHAT:" followed by a friendly message. For example: "CHAT: Hi there! 👋 I'm SkyQuery, your AI flight assistant. I can help you find cheap flights, compare airlines, discover destinations, and more. Try asking me something like 'cheapest nonstop flights from ATL to LAX' or 'which airlines fly from JFK?'"
+2. If the user asks about flights, prices, airports, airlines, destinations, or anything that requires database lookup, generate ONLY the HiveQL/SparkSQL query (no "CHAT:" prefix, no explanation).
+3. Remember conversation context — if the user says "now show nonstop only" after a previous query, adjust the previous query accordingly.
+
+DATABASE SCHEMA (ticketmeta09):
 
 Table: ext_itineraries
 Columns (ALL STRING type - must CAST for numeric operations):
@@ -340,7 +347,7 @@ Columns (ALL STRING type - must CAST for numeric operations):
   segmentsAirlineName, segmentsAirlineCode, segmentsEquipmentDescription,
   segmentsDurationInSeconds, segmentsDistance, segmentsCabinCode
 
-Important:
+Important SQL rules:
 - Use CAST(totalFare AS DOUBLE) for fare comparisons
 - Use CAST(seatsRemaining AS INT) for seat counts
 - isNonStop values are 'True' or 'False' (strings)
@@ -355,8 +362,6 @@ Columns: id INT, ident, type, name, latitude_deg DOUBLE, longitude_deg DOUBLE,
 
 Table: countries
 Columns: id INT, code, name, continent, wikipedia_link, keywords
-
-Given a user question, generate ONLY the HiveQL/SparkSQL query. No explanation.
 """
 
     sql = ""
@@ -392,6 +397,15 @@ Given a user question, generate ONLY the HiveQL/SparkSQL query. No explanation.
         )
         sql = response.choices[0].message.content.strip()
 
+        # Check if it's a conversational response (CHAT: prefix)
+        if sql.startswith("CHAT:"):
+            chat_message = sql[5:].strip()
+            return jsonify({
+                "answer": chat_message,
+                "sql": None,
+                "results": None
+            })
+
         # Clean up markdown code blocks
         sql = re.sub(r"^```(sql|hive|sparksql)?\s*", "", sql)
         sql = re.sub(r"\s*```$", "", sql)
@@ -399,8 +413,9 @@ Given a user question, generate ONLY the HiveQL/SparkSQL query. No explanation.
         # Safety: only allow SELECT
         if not sql.upper().strip().startswith("SELECT"):
             return jsonify({
-                "answer": "I can only run SELECT queries for safety.",
-                "sql": sql
+                "answer": sql if len(sql) > 20 else "I can only run SELECT queries for safety.",
+                "sql": None if len(sql) > 20 else sql,
+                "results": None
             })
 
         cols, rows = run_query(sql)
