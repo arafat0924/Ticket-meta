@@ -305,6 +305,7 @@ def airports():
 def chatbot():
     data = request.get_json(force=True)
     question = data.get("question", "")
+    history = data.get("history", [])  # Last 10 messages for context
 
     if not question:
         return jsonify({"error": "question is required"}), 400
@@ -364,12 +365,28 @@ Given a user question, generate ONLY the HiveQL/SparkSQL query. No explanation.
             api_key=api_key,
             base_url="https://api.deepseek.com"
         )
+
+        # Build messages with conversation history for context
+        messages = [{"role": "system", "content": schema_prompt}]
+
+        # Add last 10 conversation messages as context
+        if history and isinstance(history, list):
+            for msg in history[-10:]:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                if role in ("user", "assistant") and content:
+                    messages.append({"role": role, "content": content})
+        else:
+            # No history, just send the current question
+            messages.append({"role": "user", "content": question})
+
+        # Ensure the last message is the current question
+        if not messages[-1].get("content", "").strip() == question:
+            messages.append({"role": "user", "content": question})
+
         response = client.chat.completions.create(
             model="deepseek-chat",
-            messages=[
-                {"role": "system", "content": schema_prompt},
-                {"role": "user", "content": question}
-            ],
+            messages=messages,
             temperature=0,
             max_tokens=500
         )
