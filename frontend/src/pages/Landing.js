@@ -85,7 +85,7 @@ function Landing() {
         </div>
         <div className="ld-grid">
           {destinations.map((d, i) => (
-            <div key={i} className="dest-hero-card" onClick={() => navigate('/where-to-fly')}>
+            <div key={i} className="dest-hero-card" onClick={() => navigate('/flights')}>
               <div className="dhc-img" style={{ backgroundImage: `url(${d.img})` }} />
               <div className="dhc-overlay" />
               <div className="dhc-content">
@@ -115,10 +115,10 @@ function Landing() {
             <h3>Flight Search</h3>
             <p>Search 80M+ flight itineraries with Hive-powered big data analytics</p>
           </div>
-          <div className="lf-card" onClick={() => navigate('/where-to-fly')}>
+          <div className="lf-card" onClick={() => navigate('/flights')}>
             <div className="lf-icon"><Globe size={24} /></div>
-            <h3>Where to Fly</h3>
-            <p>Discover the cheapest destinations from any airport worldwide</p>
+            <h3>Route Discovery</h3>
+            <p>Explore route options using the current flight search experience</p>
           </div>
           <div className="lf-card" onClick={() => navigate('/when-to-fly')}>
             <div className="lf-icon"><Calendar size={24} /></div>

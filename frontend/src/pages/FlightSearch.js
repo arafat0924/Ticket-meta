@@ -1,5 +1,5 @@
-import React, { useState, useTransition, useId, useCallback, useMemo } from 'react';
-import { Search, Plane, ChevronDown, ChevronUp, MoreHorizontal } from 'lucide-react';
+import React, { useState, useId, useCallback } from 'react';
+import { Search, Plane, ChevronDown, ChevronUp } from 'lucide-react';
 import { searchFlights } from '../api';
 
 function FlightSearch() {
@@ -17,7 +17,7 @@ function FlightSearch() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [openMenu, setOpenMenu] = useState(null);
 
-  const [isPending, startTransition] = useTransition();
+  const [isLoading, setIsLoading] = useState(false);
 
   const originId = useId();
   const destId = useId();
@@ -32,17 +32,18 @@ function FlightSearch() {
     setFlights([]);
     setSearched(true);
     setOpenMenu(null);
+    setIsLoading(true);
 
-    startTransition(async () => {
-      try {
-        const res = await searchFlights({ origin, dest, nonstop, sort, limit, date });
-        setFlights(res.data.flights || []);
-        setQuery(res.data.query || '');
-      } catch (err) {
-        setError(err.response?.data?.error || err.message);
-        setQuery(err.response?.data?.query || '');
-      }
-    });
+    try {
+      const res = await searchFlights({ origin, dest, nonstop, sort, limit, date, allowSlow: 0 });
+      setFlights(res.data.flights || []);
+      setQuery(res.data.query || '');
+    } catch (err) {
+      setError(err.response?.data?.error || err.message);
+      setQuery(err.response?.data?.query || '');
+    } finally {
+      setIsLoading(false);
+    }
   }, [origin, dest, nonstop, sort, limit, date]);
 
   const formatTime = (raw) => {
@@ -124,9 +125,9 @@ function FlightSearch() {
                 <option value={50}>50</option>
               </select>
             </div>
-            <button className="btn-primary" type="submit" disabled={isPending || !origin || !dest}>
+            <button className="btn-primary" type="submit" disabled={isLoading || !origin || !dest}>
               <Search size={18} />
-              {isPending ? 'Searching...' : 'Search'}
+              {isLoading ? 'Searching...' : 'Search'}
             </button>
           </div>
           <div className="checkbox-group">
@@ -138,7 +139,7 @@ function FlightSearch() {
 
       {error && <div className="error-banner">⚠ {error}</div>}
 
-      {isPending && (
+      {isLoading && (
         <div className="loading-container">
           <div className="spinner" />
           <div className="loading-text">
@@ -148,7 +149,7 @@ function FlightSearch() {
         </div>
       )}
 
-      {!isPending && searched && flights.length > 0 && (
+      {!isLoading && searched && flights.length > 0 && (
         <>
           {/* Filter bar */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -201,7 +202,6 @@ function FlightSearch() {
               </thead>
               <tbody>
                 {filteredFlights.map((f, i) => {
-                  const isNonstop = (f.isnonstop || f.isNonStop) === 'True';
                   const isRefundable = (f.isrefundable || f.isRefundable) === 'True';
                   const seats = Number(f.seatsremaining || f.seatsRemaining || 99);
                   const status = getFlightStatus(f);
@@ -311,7 +311,7 @@ function FlightSearch() {
         </>
       )}
 
-      {!isPending && searched && flights.length === 0 && !error && (
+      {!isLoading && searched && flights.length === 0 && !error && (
         <div className="empty-state">
           <div className="icon">🔍</div>
           <h3>No flights found</h3>
@@ -319,7 +319,7 @@ function FlightSearch() {
         </div>
       )}
 
-      {!searched && !isPending && (
+      {!searched && !isLoading && (
         <div className="empty-state">
           <div className="icon"><Plane size={48} /></div>
           <h3>Search for flights</h3>
