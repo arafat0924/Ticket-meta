@@ -2,6 +2,46 @@ import React, { useState, useTransition, useId, useCallback, useMemo } from 'rea
 import { Search, Plane, ChevronDown, ChevronUp, MoreHorizontal, DollarSign, Star, CheckCircle, XCircle, Armchair, Eye } from 'lucide-react';
 import { searchFlights } from '../api';
 
+// Custom Dropdown Component
+function CustomSelect({ label, value, onChange, options }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = React.useRef(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setIsOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selected = options.find(o => o.value === value);
+
+  return (
+    <div className="custom-select" ref={ref}>
+      {label && <label className="custom-select-label">{label}</label>}
+      <div className={`custom-select-trigger ${isOpen ? 'open' : ''}`} onClick={() => setIsOpen(!isOpen)}>
+        <span>{selected?.label || value}</span>
+        <ChevronDown size={14} className={`custom-select-arrow ${isOpen ? 'rotated' : ''}`} />
+      </div>
+      {isOpen && (
+        <div className="custom-select-dropdown">
+          {options.map((opt, i) => (
+            <div
+              key={i}
+              className={`custom-select-option ${opt.value === value ? 'active' : ''}`}
+              onClick={() => { onChange(opt.value); setIsOpen(false); }}
+            >
+              {opt.label}
+              {opt.value === value && <span className="custom-select-check">✓</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FlightSearch() {
   const [origin, setOrigin] = useState('');
   const [dest, setDest] = useState('');
@@ -116,14 +156,16 @@ function FlightSearch() {
               <label htmlFor={dateId}>Date (optional)</label>
               <input id={dateId} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
-            <div className="input-group">
-              <label htmlFor={limitId}>Limit</label>
-              <select id={limitId} value={limit} onChange={(e) => setLimit(Number(e.target.value))}>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-            </div>
+            <CustomSelect
+              label="Limit"
+              value={limit}
+              onChange={(v) => setLimit(v)}
+              options={[
+                { value: 10, label: '10 results' },
+                { value: 20, label: '20 results' },
+                { value: 50, label: '50 results' },
+              ]}
+            />
             <button className="btn-primary" type="submit" disabled={isPending || !origin || !dest}>
               <Search size={18} />
               {isPending ? 'Searching...' : 'Search'}
@@ -159,25 +201,16 @@ function FlightSearch() {
                 </button>
               ))}
             </div>
-            <div style={{ position: 'relative' }}>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                style={{
-                  background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: 8,
-                  color: '#888', padding: '8px 32px 8px 14px', fontSize: 13, fontWeight: 600,
-                  fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
-                  appearance: 'none', WebkitAppearance: 'none',
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center'
-                }}
-              >
-                <option value="All">Show: All</option>
-                <option value="Nonstop">Nonstop</option>
-                <option value="Connecting">Connecting</option>
-                <option value="Few Left">Few Left</option>
-              </select>
-            </div>
+            <CustomSelect
+              value={statusFilter}
+              onChange={(v) => setStatusFilter(v)}
+              options={[
+                { value: 'All', label: 'Show: All' },
+                { value: 'Nonstop', label: 'Nonstop' },
+                { value: 'Connecting', label: 'Connecting' },
+                { value: 'Few Left', label: 'Few Left' },
+              ]}
+            />
           </div>
 
           <div className="result-count">
