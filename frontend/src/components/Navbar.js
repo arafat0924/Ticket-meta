@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Search, MessageSquare, Plane } from 'lucide-react';
+import { Search, MessageSquare, Plane, Calendar, MapPin, Activity } from 'lucide-react';
 import { healthCheck } from '../api';
 
 function Navbar() {
@@ -30,6 +30,15 @@ function Navbar() {
         <div className="tl-nav-links">
           <NavLink to="/flights" className={({ isActive }) => `tl-nav-link ${isActive ? 'active' : ''}`}>
             <Search size={14} /> Flights
+          </NavLink>
+          <NavLink to="/when-to-fly" className={({ isActive }) => `tl-nav-link ${isActive ? 'active' : ''}`}>
+            <Calendar size={14} /> When to Fly
+          </NavLink>
+          <NavLink to="/where-to-fly" className={({ isActive }) => `tl-nav-link ${isActive ? 'active' : ''}`}>
+            <MapPin size={14} /> Where to Fly
+          </NavLink>
+          <NavLink to="/airline-comparison" className={({ isActive }) => `tl-nav-link ${isActive ? 'active' : ''}`}>
+            <Activity size={14} /> Airline Comparison
           </NavLink>
           <NavLink to="/chatbot" className={({ isActive }) => `tl-nav-link ${isActive ? 'active' : ''}`}>
             <MessageSquare size={14} /> AI Chat
