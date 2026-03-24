@@ -1633,6 +1633,494 @@
 .stagger-5 { transition-delay: 0.36s !important; }
 
 /* ============================================================
+   LANDING PAGE — Dark Luxury Flight Theme
+   ============================================================ */
+.landing {
+  background: #050d1a;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ===== HERO ===== */
+.landing-hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  background: url('./flight-bg.png') center/cover no-repeat;
+  z-index: 0;
+}
+
+.hero-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,
+    rgba(5, 13, 26, 0.4) 0%,
+    rgba(5, 13, 26, 0.2) 40%,
+    rgba(5, 13, 26, 0.7) 100%);
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 0 40px;
+  width: 100%;
+  max-width: 1200px;
+  animation: fadeInUp 1s ease-out;
+}
+
+.hero-title {
+  font-family: 'Chakra Petch', 'Manrope', sans-serif;
+  font-size: clamp(42px, 7vw, 80px);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 6px;
+  background: linear-gradient(135deg, #ffffff 0%, #6ec6ff 50%, #ffffff 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 6s ease-in-out infinite;
+  margin-bottom: 12px;
+}
+
+.hero-subtitle {
+  font-size: clamp(12px, 1.5vw, 16px);
+  font-weight: 500;
+  color: rgba(200, 216, 232, 0.5);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  margin-bottom: 48px;
+}
+
+/* Hero Search Bar */
+.hero-search {
+  display: flex;
+  align-items: stretch;
+  background: rgba(11, 26, 46, 0.6);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  overflow: hidden;
+  max-width: 900px;
+  margin: 0 auto;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+}
+
+.hero-search-field {
+  flex: 1;
+  padding: 18px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.hero-search-field:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.hsf-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(200, 216, 232, 0.4);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.hsf-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+.hsf-icon {
+  color: #6ec6ff;
+  flex-shrink: 0;
+}
+
+.hero-search-divider {
+  width: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  align-self: stretch;
+  margin: 12px 0;
+}
+
+.hero-search-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 32px;
+  background: linear-gradient(135deg, #6ec6ff 0%, #4a9edd 100%);
+  border: none;
+  color: #0b1a2e;
+  font-size: 13px;
+  font-weight: 800;
+  font-family: inherit;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.hero-search-btn:hover {
+  background: linear-gradient(135deg, #8cd4ff 0%, #6ec6ff 100%);
+  box-shadow: 0 0 30px rgba(110, 198, 255, 0.3);
+}
+
+/* Scroll Indicator */
+.hero-scroll {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  animation: fadeInUp 1s ease-out 1.5s both;
+}
+
+.hero-scroll-text {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(200, 216, 232, 0.35);
+  letter-spacing: 3px;
+}
+
+.hero-scroll-line {
+  width: 1px;
+  height: 40px;
+  background: linear-gradient(to bottom, rgba(110, 198, 255, 0.5), transparent);
+  animation: scrollPulse 2s ease-in-out infinite;
+}
+
+/* ===== STATS ===== */
+.landing-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: rgba(255, 255, 255, 0.04);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.landing-stat {
+  padding: 40px 24px;
+  text-align: center;
+  background: #050d1a;
+  transition: all 0.3s ease;
+}
+
+.landing-stat:hover {
+  background: rgba(11, 26, 46, 0.8);
+}
+
+.ls-value {
+  font-family: 'Manrope', sans-serif;
+  font-size: 32px;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: -1px;
+  margin-bottom: 4px;
+}
+
+.ls-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(200, 216, 232, 0.4);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* ===== DESTINATIONS ===== */
+.landing-destinations {
+  padding: 80px 40px;
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+.ld-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 32px;
+}
+
+.ld-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6ec6ff;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.ld-title {
+  font-family: 'Manrope', sans-serif;
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.ld-arrows {
+  display: flex;
+  gap: 8px;
+}
+
+.ld-arrow {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #c8d8e8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ld-arrow:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.ld-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+/* Destination Hero Cards */
+.dest-hero-card {
+  position: relative;
+  height: 420px;
+  border-radius: 20px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.4s ease;
+}
+
+.dest-hero-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.dest-hero-card:hover .dhc-img {
+  transform: scale(1.05);
+}
+
+.dhc-img {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: transform 0.6s ease;
+}
+
+.dhc-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 40%, rgba(5, 13, 26, 0.95) 100%);
+  z-index: 1;
+}
+
+.dhc-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dhc-city {
+  font-family: 'Manrope', sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.dhc-country {
+  font-size: 13px;
+  color: rgba(200, 216, 232, 0.5);
+}
+
+.dhc-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dhc-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: #6ec6ff;
+  letter-spacing: 0.5px;
+}
+
+.dhc-arrow {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  transition: all 0.2s;
+}
+
+.dest-hero-card:hover .dhc-arrow {
+  background: #6ec6ff;
+  color: #0b1a2e;
+  border-color: #6ec6ff;
+}
+
+/* ===== FEATURES ===== */
+.landing-features {
+  padding: 80px 40px;
+  background: rgba(10, 22, 40, 0.5);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.lf-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.lf-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+.lf-card {
+  background: rgba(15, 28, 50, 0.5);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  padding: 32px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.lf-card:hover {
+  border-color: rgba(110, 198, 255, 0.2);
+  transform: translateY(-4px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+}
+
+.lf-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: rgba(110, 198, 255, 0.08);
+  border: 1px solid rgba(110, 198, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  color: #6ec6ff;
+  transition: all 0.3s;
+}
+
+.lf-card:hover .lf-icon {
+  background: rgba(110, 198, 255, 0.15);
+  box-shadow: 0 0 30px rgba(110, 198, 255, 0.2);
+}
+
+.lf-card h3 {
+  font-family: 'Manrope', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 10px;
+}
+
+.lf-card p {
+  font-size: 13px;
+  color: rgba(200, 216, 232, 0.45);
+  line-height: 1.6;
+}
+
+/* ===== FOOTER ===== */
+.landing-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 40px 60px;
+  background: #040b18;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.lfoot-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.lfoot-brand {
+  font-family: 'Manrope', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 2px;
+}
+
+.lfoot-copy {
+  font-size: 12px;
+  color: rgba(200, 216, 232, 0.3);
+}
+
+.lfoot-links {
+  display: flex;
+  gap: 28px;
+}
+
+.lfoot-links a {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(200, 216, 232, 0.35);
+  letter-spacing: 1px;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.lfoot-links a:hover {
+  color: #6ec6ff;
+}
+
+/* ============================================================
    TRAVELYNX LANDING PAGE — Dark Teal Travel Theme
    ============================================================ */
 .tl-landing {
