@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect, useTransition, useOptimistic, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Bot, User } from 'lucide-react';
-import { chatbot } from '../api';
+import { chatbotStream } from '../api';
 
 function Chatbot() {
   const [input, setInput] = useState('');
@@ -12,67 +12,95 @@ function Chatbot() {
       results: null,
     },
   ]);
+  const [loading, setLoading] = useState(false);
+  const [statusMsg, setStatusMsg] = useState('');
+  const [streamSql, setStreamSql] = useState(null); // SQL shown while query runs
+  const abortRef = useRef(null);
   const messagesEnd = useRef(null);
-
-  // React 19: useTransition for non-blocking async chat
-  const [isPending, startTransition] = useTransition();
-
-  // React 19: useOptimistic for instant user message display
-  const [optimisticMessages, addOptimisticMessage] = useOptimistic(
-    messages,
-    (currentMessages, newMessage) => [...currentMessages, newMessage]
-  );
 
   useEffect(() => {
     messagesEnd.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [optimisticMessages]);
+  }, [messages, statusMsg, streamSql]);
 
-  const handleSend = useCallback(async () => {
-    if (!input.trim() || isPending) return;
+  const handleSend = useCallback(() => {
+    if (!input.trim() || loading) return;
     const question = input.trim();
     setInput('');
 
-    // React 19: Optimistically show user message immediately
-    addOptimisticMessage({ role: 'user', text: question });
+    // Add user message immediately
+    setMessages(prev => [...prev, { role: 'user', text: question }]);
+    setLoading(true);
+    setStatusMsg('Asking AI...');
+    setStreamSql(null);
 
-    startTransition(async () => {
-      // Add user message to actual state
-      setMessages(prev => [...prev, { role: 'user', text: question }]);
+    // Build conversation history (last 10 messages) for context
+    const history = [...messages, { role: 'user', text: question }]
+      .slice(-10)
+      .map(m => ({
+        role: m.role === 'bot' ? 'assistant' : 'user',
+        content: m.text + (m.sql ? `\n[SQL: ${m.sql}]` : '')
+      }));
 
-      // Build conversation history (last 10 messages) for context
-      const history = [...messages, { role: 'user', text: question }]
-        .slice(-10)
-        .map(m => ({
-          role: m.role === 'bot' ? 'assistant' : 'user',
-          content: m.text + (m.sql ? `\n[SQL: ${m.sql}]` : '')
-        }));
+    // Use streaming endpoint — each event updates UI progressively
+    abortRef.current = chatbotStream(question, history, (event) => {
+      switch (event.type) {
+        case 'status':
+          setStatusMsg(event.message || 'Processing...');
+          break;
 
-      try {
-        const res = await chatbot(question, history);
-        const data = res.data;
-        setMessages(prev => [
-          ...prev,
-          {
-            role: 'bot',
-            text: data.answer || data.error || 'No response',
-            sql: data.sql || null,
-            results: data.results || null,
-          },
-        ]);
-      } catch (err) {
-        const errData = err.response?.data;
-        setMessages(prev => [
-          ...prev,
-          {
-            role: 'bot',
-            text: errData?.error || errData?.answer || err.message || 'Something went wrong',
-            sql: errData?.sql || null,
-            results: null,
-          },
-        ]);
+        case 'sql':
+          // Show SQL immediately while query is running
+          setStreamSql(event.sql);
+          setStatusMsg('Running query on Hive...');
+          break;
+
+        case 'answer':
+          // Final answer — add bot message with results
+          setMessages(prev => [
+            ...prev,
+            {
+              role: 'bot',
+              text: event.answer || 'Done.',
+              sql: event.sql || null,
+              results: event.results || null,
+            },
+          ]);
+          setStreamSql(null);
+          setStatusMsg('');
+          break;
+
+        case 'error':
+          setMessages(prev => [
+            ...prev,
+            {
+              role: 'bot',
+              text: `⚠️ ${event.message || 'Something went wrong'}`,
+              sql: null,
+              results: null,
+            },
+          ]);
+          setStreamSql(null);
+          setStatusMsg('');
+          break;
+
+        case 'done':
+          setLoading(false);
+          setStatusMsg('');
+          setStreamSql(null);
+          break;
+
+        default:
+          break;
       }
     });
-  }, [input, isPending, addOptimisticMessage]);
+  }, [input, loading, messages]);
+
+  // Cancel any in-flight request on unmount
+  useEffect(() => {
+    return () => {
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, []);
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -132,7 +160,7 @@ function Chatbot() {
       </div>
 
       <div className="chat-container">
-        {optimisticMessages.length <= 1 && (
+        {messages.length <= 1 && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
             {suggestions.map((s, i) => (
               <button key={i} className="btn-secondary" onClick={() => setInput(s)} style={{ fontSize: 12 }}>
@@ -143,7 +171,7 @@ function Chatbot() {
         )}
 
         <div className="chat-messages">
-          {optimisticMessages.map((msg, i) => (
+          {messages.map((msg, i) => (
             <div key={i} className={`chat-message ${msg.role}`}>
               <div className="chat-avatar">{msg.role === 'bot' ? <Bot size={18} /> : <User size={18} />}</div>
               <div>
@@ -155,20 +183,25 @@ function Chatbot() {
               </div>
             </div>
           ))}
-          {isPending && (
+
+          {/* Live streaming status indicator */}
+          {loading && (
             <div className="chat-message bot">
               <div className="chat-avatar"><Bot size={18} /></div>
-              <div className="chat-bubble">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div className="spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
-                  <span>Thinking & querying Hive...</span>
-                </div>
-                <div style={{ fontSize: 12, color: '#f59e0b', marginTop: 8 }}>
-                  ⏱ This may take a few minutes for large table scans
+              <div>
+                <div className="chat-bubble">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div className="spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
+                    <span>{statusMsg || 'Thinking...'}</span>
+                  </div>
+                  {streamSql && (
+                    <div className="chat-sql" style={{ marginTop: 8 }}>{streamSql}</div>
+                  )}
                 </div>
               </div>
             </div>
           )}
+
           <div ref={messagesEnd} />
         </div>
 
@@ -179,9 +212,9 @@ function Chatbot() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={isPending}
+            disabled={loading}
           />
-          <button className="btn-primary" onClick={handleSend} disabled={!input.trim() || isPending}>
+          <button className="btn-primary" onClick={handleSend} disabled={!input.trim() || loading}>
             <Send size={18} />
           </button>
         </div>
