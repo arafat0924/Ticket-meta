@@ -322,11 +322,13 @@ def search_flights():
             LIMIT {limit}
         """
     else:
-        # Fast mode: avoid global sorting on huge datasets to keep UI responsive.
+        # Fast mode: Pre-sample to prevent Out-Of-Memory crashes on 80-million row raw datasets
         sql = f"""
             SELECT {select_cols}
-            FROM {tbl}
-            WHERE {where}
+            FROM (
+                SELECT * FROM {tbl} WHERE {where} LIMIT 500
+            ) tmp
+            ORDER BY {order}
             LIMIT {limit}
         """
 
@@ -613,7 +615,7 @@ def airports():
 
 
 # ---------------------------------------------------------------------------
-# 6. AI Chatbot  (Text-to-SQL via OpenAI)
+# 6. AI Chatbot  (Text-to-SQL via DeepSeek AI)
 #    POST /api/chatbot  {"question": "cheapest flights from ATL"}
 # ---------------------------------------------------------------------------
 @app.route("/api/chatbot", methods=["POST"])
@@ -621,6 +623,7 @@ def airports():
 def chatbot():
     data = request.get_json(force=True)
     question = data.get("question", "")
+    history = data.get("history", [])  # Last 10 messages for context
 
     if not question:
         return jsonify({"error": "question is required"}), 400
@@ -630,18 +633,26 @@ def chatbot():
     except ImportError:
         return jsonify({
             "error": "openai package not installed. Run: pip install openai",
-            "answer": "OpenAI is not configured on the server."
+            "answer": "AI assistant is not configured on the server."
         }), 500
 
-    api_key = os.environ.get("OPENAI_API_KEY", "")
+    # DeepSeek API configuration
+    api_key = os.environ.get("DEEPSEEK_API_KEY", "sk-ebc20963bcba441e91e7917fc616a097")
     if not api_key:
         return jsonify({
-            "error": "OPENAI_API_KEY environment variable not set",
-            "answer": "OpenAI API key is not configured on the server."
+            "error": "DEEPSEEK_API_KEY not set",
+            "answer": "DeepSeek API key is not configured on the server."
         }), 500
 
     schema_prompt = """
-You are a SQL assistant for Apache Hive / Spark SQL. The database is ticketmeta09.
+You are a friendly AI flight assistant called Data Turbulence. You help users find flight information by querying a Hive database.
+
+BEHAVIOR RULES:
+1. If the user sends a greeting (hi, hello, hey, etc.), a general question, or something NOT related to flights/airports/airlines data, respond conversationally. Start your response with "CHAT:" followed by a friendly message. For example: "CHAT: Hi there! 👋 I'm Data Turbulence, your AI flight assistant. I can help you find cheap flights, compare airlines, discover destinations, and more. Try asking me something like 'cheapest nonstop flights from ATL to LAX' or 'which airlines fly from JFK?'"
+2. If the user asks about flights, prices, airports, airlines, destinations, or anything that requires database lookup, generate ONLY the HiveQL/SparkSQL query (no "CHAT:" prefix, no explanation).
+3. Remember conversation context — if the user says "now show nonstop only" after a previous query, adjust the previous query accordingly.
+
+DATABASE SCHEMA (ticketmeta09):
 
 Table: ext_itineraries
 Columns (ALL STRING type - must CAST for numeric operations):
@@ -654,7 +665,7 @@ Columns (ALL STRING type - must CAST for numeric operations):
   segmentsAirlineName, segmentsAirlineCode, segmentsEquipmentDescription,
   segmentsDurationInSeconds, segmentsDistance, segmentsCabinCode
 
-Important:
+Important SQL rules:
 - Use CAST(totalFare AS DOUBLE) for fare comparisons
 - Use CAST(seatsRemaining AS INT) for seat counts
 - isNonStop values are 'True' or 'False' (strings)
@@ -669,23 +680,49 @@ Columns: id INT, ident, type, name, latitude_deg DOUBLE, longitude_deg DOUBLE,
 
 Table: countries
 Columns: id INT, code, name, continent, wikipedia_link, keywords
-
-Given a user question, generate ONLY the HiveQL/SparkSQL query. No explanation.
 """
 
     sql = ""
     try:
-        client = openai.OpenAI(api_key=api_key)
+        client = openai.OpenAI(
+            api_key=api_key,
+            base_url="https://api.deepseek.com"
+        )
+
+        # Build messages with conversation history for context
+        messages = [{"role": "system", "content": schema_prompt}]
+
+        # Add last 10 conversation messages as context
+        if history and isinstance(history, list):
+            for msg in history[-10:]:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                if role in ("user", "assistant") and content:
+                    messages.append({"role": role, "content": content})
+        else:
+            # No history, just send the current question
+            messages.append({"role": "user", "content": question})
+
+        # Ensure the last message is the current question
+        if not messages[-1].get("content", "").strip() == question:
+            messages.append({"role": "user", "content": question})
+
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": schema_prompt},
-                {"role": "user", "content": question}
-            ],
+            model="deepseek-chat",
+            messages=messages,
             temperature=0,
             max_tokens=500
         )
         sql = response.choices[0].message.content.strip()
+
+        # Check if it's a conversational response (CHAT: prefix)
+        if sql.startswith("CHAT:"):
+            chat_message = sql[5:].strip()
+            return jsonify({
+                "answer": chat_message,
+                "sql": None,
+                "results": None
+            })
 
         # Clean up markdown code blocks
         sql = re.sub(r"^```(sql|hive|sparksql)?\s*", "", sql)
@@ -694,8 +731,9 @@ Given a user question, generate ONLY the HiveQL/SparkSQL query. No explanation.
         # Safety: only allow SELECT
         if not sql.upper().strip().startswith("SELECT"):
             return jsonify({
-                "answer": "I can only run SELECT queries for safety.",
-                "sql": sql
+                "answer": sql if len(sql) > 20 else "I can only run SELECT queries for safety.",
+                "sql": None if len(sql) > 20 else sql,
+                "results": None
             })
 
         cols, rows = run_query(sql)
