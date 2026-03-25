@@ -156,74 +156,36 @@ function AnalyticsDashboard() {
 
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
-          gap: 20,
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: 24,
           maxWidth: 1100,
           margin: '0 auto',
           padding: '0 20px',
         }}>
-          {ANALYTICS_CARDS.map(card => (
-            <div
-              key={card.key}
-              onClick={() => openSection(card.key)}
-              style={{
-                background: '#0d0d0d',
-                border: '1px solid #1a1a1a',
-                borderRadius: 16,
-                padding: '28px 24px',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                position: 'relative',
-                overflow: 'hidden',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.borderColor = card.color;
-                e.currentTarget.style.boxShadow = `0 8px 30px ${card.color}22`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.borderColor = '#1a1a1a';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              {/* Gradient accent bar */}
-              <div style={{
-                position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-                background: card.gradient,
-              }} />
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
-                <div style={{
-                  width: 56, height: 56, borderRadius: 14,
-                  background: `${card.color}15`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: card.color, flexShrink: 0,
-                }}>
+          {ANALYTICS_CARDS.map(card => {
+            const isCached = !!data[card.key];
+            return (
+              <div
+                key={card.key}
+                className="analytics-card"
+                onClick={() => openSection(card.key)}
+                style={{ '--card-color': card.color, '--card-gradient': card.gradient }}
+              >
+                <div className="analytics-card-icon" style={{ background: `${card.color}12`, color: card.color }}>
                   {card.icon}
                 </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#e0e0e0' }}>
-                    {card.title}
-                  </h3>
-                  {data[card.key] && (
-                    <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600 }}>✓ Cached</span>
-                  )}
+
+                <h3 className="analytics-card-title">{card.title}</h3>
+                
+                <p className="analytics-card-desc">{card.desc}</p>
+
+                <div className="analytics-card-footer">
+                  <span style={{ color: card.color, fontWeight: 600, fontSize: 14 }}>Explore →</span>
+                  {isCached && <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, background: '#22c55e15', padding: '2px 8px', borderRadius: 6 }}>✓ Cached</span>}
                 </div>
               </div>
-
-              <p style={{ margin: 0, fontSize: 13, color: '#666', lineHeight: 1.5 }}>
-                {card.desc}
-              </p>
-
-              <div style={{
-                marginTop: 16, fontSize: 13, color: card.color, fontWeight: 600,
-                display: 'flex', alignItems: 'center', gap: 4,
-              }}>
-                Explore →
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
