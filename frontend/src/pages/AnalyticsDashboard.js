@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { TrendingUp, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronUp, RefreshCw, ArrowLeft, TrendingUp, BarChart3, Calendar, Clock, Sun, Layers } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-  LineChart, Line, PieChart, Pie, Cell, Area, AreaChart, ScatterChart, Scatter, ZAxis
+  PieChart, Pie, Cell, Area, AreaChart
 } from 'recharts';
 import {
   analyticsOverview, analyticsTopAirlines, analyticsDayOfWeek,
@@ -38,351 +38,487 @@ function StatCard({ label, value, sub, color = '#f5a623', icon }) {
   );
 }
 
-function SectionTitle({ children }) {
-  return <div className="chart-title" style={{ marginTop: 32, marginBottom: 8 }}>{children}</div>;
-}
+// ─────────────── ANALYTICS CARD DEFINITIONS ───────────────
+const ANALYTICS_CARDS = [
+  {
+    key: 'overview',
+    title: 'Pricing Overview',
+    desc: 'Total flights, average fares, refundable vs non-refundable breakdown',
+    icon: <TrendingUp size={32} />,
+    color: '#f5a623',
+    gradient: 'linear-gradient(135deg, #f5a623 0%, #ff6b35 100%)',
+  },
+  {
+    key: 'topAirlines',
+    title: 'Top 15 Airlines',
+    desc: 'Airlines ranked by flight volume with average fare comparison',
+    icon: <BarChart3 size={32} />,
+    color: '#3b82f6',
+    gradient: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+  },
+  {
+    key: 'dayOfWeek',
+    title: 'Day of Week',
+    desc: 'Flight volume and pricing patterns across weekdays',
+    icon: <Calendar size={32} />,
+    color: '#22c55e',
+    gradient: 'linear-gradient(135deg, #22c55e 0%, #15803d 100%)',
+  },
+  {
+    key: 'weekendMidweek',
+    title: 'Weekend vs Midweek',
+    desc: 'Price comparison between weekend and midweek travel',
+    icon: <Sun size={32} />,
+    color: '#a855f7',
+    gradient: 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
+  },
+  {
+    key: 'bookingWindow',
+    title: 'Booking Window',
+    desc: 'How ticket prices change as flight date approaches',
+    icon: <Clock size={32} />,
+    color: '#ef4444',
+    gradient: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+  },
+  {
+    key: 'economyGap',
+    title: 'Economy Price Gap',
+    desc: 'Basic vs Standard economy fare differences by route',
+    icon: <Layers size={32} />,
+    color: '#ec4899',
+    gradient: 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)',
+  },
+];
 
+// ─────────────── MAIN COMPONENT ───────────────
 function AnalyticsDashboard() {
-  const [overview, setOverview] = useState(null);
-  const [topAirlines, setTopAirlines] = useState([]);
-  const [dayOfWeek, setDayOfWeek] = useState([]);
-  const [bookingWindow, setBookingWindow] = useState([]);
-  const [weekendMidweek, setWeekendMidweek] = useState([]);
-  const [economyGap, setEconomyGap] = useState([]);
-
+  const [activeSection, setActiveSection] = useState(null); // null = card view
+  const [data, setData] = useState({});
   const [loading, setLoading] = useState({});
   const [errors, setErrors] = useState({});
   const [queries, setQueries] = useState({});
-  const [showQueries, setShowQueries] = useState(false);
-
-  const loadSection = useCallback(async (key, apiFn, setter) => {
-    setLoading(prev => ({ ...prev, [key]: true }));
-    setErrors(prev => ({ ...prev, [key]: '' }));
-    try {
-      const res = await apiFn();
-      const data = res.data;
-      setter(data);
-      if (data.query) setQueries(prev => ({ ...prev, [key]: data.query }));
-    } catch (err) {
-      setErrors(prev => ({ ...prev, [key]: err.response?.data?.error || err.message }));
-    } finally {
-      setLoading(prev => ({ ...prev, [key]: false }));
-    }
-  }, []);
-
-  const loadAll = useCallback(() => {
-    loadSection('overview', analyticsOverview, (d) => setOverview(d.overview));
-    loadSection('topAirlines', analyticsTopAirlines, (d) => setTopAirlines(d.airlines || []));
-    loadSection('dayOfWeek', analyticsDayOfWeek, (d) => setDayOfWeek(d.days || []));
-    loadSection('bookingWindow', analyticsBookingWindow, (d) => setBookingWindow(d.bookingWindow || []));
-    loadSection('weekendMidweek', analyticsWeekendMidweek, (d) => setWeekendMidweek(d.comparison || []));
-    loadSection('economyGap', analyticsEconomyGap, (d) => setEconomyGap(d.routes || []));
-  }, [loadSection]);
-
-  useEffect(() => { loadAll(); }, [loadAll]);
+  const [showQuery, setShowQuery] = useState(false);
 
   const g = (obj, key) => {
     if (!obj) return 0;
     return Number(obj[key] || obj[key.toLowerCase()] || 0);
   };
 
-  const anyLoading = Object.values(loading).some(Boolean);
+  // Fetch data for a specific section
+  const fetchSection = useCallback(async (key) => {
+    if (data[key] && !errors[key]) return; // Already loaded, skip
+    setLoading(prev => ({ ...prev, [key]: true }));
+    setErrors(prev => ({ ...prev, [key]: '' }));
 
-  // Prepare chart data
-  const airlineChartData = topAirlines.map(a => ({
+    const apiMap = {
+      overview: { fn: analyticsOverview, extract: (d) => d.overview },
+      topAirlines: { fn: analyticsTopAirlines, extract: (d) => d.airlines || [] },
+      dayOfWeek: { fn: analyticsDayOfWeek, extract: (d) => d.days || [] },
+      weekendMidweek: { fn: analyticsWeekendMidweek, extract: (d) => d.comparison || [] },
+      bookingWindow: { fn: analyticsBookingWindow, extract: (d) => d.bookingWindow || [] },
+      economyGap: { fn: analyticsEconomyGap, extract: (d) => d.routes || [] },
+    };
+
+    try {
+      const res = await apiMap[key].fn();
+      const extracted = apiMap[key].extract(res.data);
+      setData(prev => ({ ...prev, [key]: extracted }));
+      if (res.data.query) setQueries(prev => ({ ...prev, [key]: res.data.query }));
+    } catch (err) {
+      setErrors(prev => ({ ...prev, [key]: err.response?.data?.error || err.message }));
+    } finally {
+      setLoading(prev => ({ ...prev, [key]: false }));
+    }
+  }, [data, errors]);
+
+  // When a section is opened, fetch its data
+  const openSection = useCallback((key) => {
+    setActiveSection(key);
+    fetchSection(key);
+  }, [fetchSection]);
+
+  // Force refresh a section
+  const refreshSection = useCallback((key) => {
+    setData(prev => { const n = { ...prev }; delete n[key]; return n; });
+    setErrors(prev => ({ ...prev, [key]: '' }));
+    setTimeout(() => fetchSection(key), 100);
+  }, [fetchSection]);
+
+  // ─────────────── CARD VIEW (Landing) ───────────────
+  if (!activeSection) {
+    return (
+      <div className="page-container">
+        <title>Analytics Dashboard — Data Turbulence</title>
+        <div className="page-hero">
+          <h1>📊 Analytics Dashboard</h1>
+          <p>Choose an analytics section to explore. Data loads only when you open a section — fast & efficient.</p>
+        </div>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+          gap: 20,
+          maxWidth: 1100,
+          margin: '0 auto',
+          padding: '0 20px',
+        }}>
+          {ANALYTICS_CARDS.map(card => (
+            <div
+              key={card.key}
+              onClick={() => openSection(card.key)}
+              style={{
+                background: '#0d0d0d',
+                border: '1px solid #1a1a1a',
+                borderRadius: 16,
+                padding: '28px 24px',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+                e.currentTarget.style.borderColor = card.color;
+                e.currentTarget.style.boxShadow = `0 8px 30px ${card.color}22`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.borderColor = '#1a1a1a';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              {/* Gradient accent bar */}
+              <div style={{
+                position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+                background: card.gradient,
+              }} />
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
+                <div style={{
+                  width: 56, height: 56, borderRadius: 14,
+                  background: `${card.color}15`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: card.color, flexShrink: 0,
+                }}>
+                  {card.icon}
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#e0e0e0' }}>
+                    {card.title}
+                  </h3>
+                  {data[card.key] && (
+                    <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600 }}>✓ Cached</span>
+                  )}
+                </div>
+              </div>
+
+              <p style={{ margin: 0, fontSize: 13, color: '#666', lineHeight: 1.5 }}>
+                {card.desc}
+              </p>
+
+              <div style={{
+                marginTop: 16, fontSize: 13, color: card.color, fontWeight: 600,
+                display: 'flex', alignItems: 'center', gap: 4,
+              }}>
+                Explore →
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ─────────────── DETAIL VIEW (Single Section) ───────────────
+  const card = ANALYTICS_CARDS.find(c => c.key === activeSection);
+  const sectionData = data[activeSection];
+  const isLoading = loading[activeSection];
+  const error = errors[activeSection];
+  const query = queries[activeSection];
+
+  return (
+    <div className="page-container">
+      <title>{card.title} — Analytics</title>
+
+      {/* Back button + Header */}
+      <div style={{ marginBottom: 24 }}>
+        <button
+          onClick={() => setActiveSection(null)}
+          style={{
+            background: 'transparent', border: '1px solid #333', borderRadius: 10,
+            color: '#ccc', padding: '8px 16px', cursor: 'pointer', fontSize: 14,
+            display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 16,
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = card.color; e.currentTarget.style.color = card.color; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.color = '#ccc'; }}
+        >
+          <ArrowLeft size={16} /> Back to Analytics
+        </button>
+
+        <div className="page-hero" style={{ paddingBottom: 10 }}>
+          <h1 style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ color: card.color }}>{card.icon}</span> {card.title}
+          </h1>
+          <p>{card.desc}</p>
+        </div>
+
+        <div style={{ textAlign: 'center' }}>
+          <button
+            className="btn-primary"
+            onClick={() => refreshSection(activeSection)}
+            disabled={isLoading}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+          >
+            <RefreshCw size={16} className={isLoading ? 'spinning' : ''} />
+            {isLoading ? 'Loading…' : 'Refresh Data'}
+          </button>
+        </div>
+      </div>
+
+      {/* Loading */}
+      {isLoading && (
+        <div className="loading-container">
+          <div className="spinner" />
+          <div className="loading-text">Querying ~80M rows… This may take 1-3 minutes.</div>
+        </div>
+      )}
+
+      {/* Error */}
+      {error && <div className="error-banner">⚠ {error}</div>}
+
+      {/* ─── SECTION CONTENT ─── */}
+      {activeSection === 'overview' && sectionData && <OverviewSection data={sectionData} g={g} />}
+      {activeSection === 'topAirlines' && sectionData && <TopAirlinesSection data={sectionData} />}
+      {activeSection === 'dayOfWeek' && sectionData && <DayOfWeekSection data={sectionData} />}
+      {activeSection === 'weekendMidweek' && sectionData && <WeekendMidweekSection data={sectionData} />}
+      {activeSection === 'bookingWindow' && sectionData && <BookingWindowSection data={sectionData} />}
+      {activeSection === 'economyGap' && sectionData && <EconomyGapSection data={sectionData} />}
+
+      {/* Query Debug */}
+      {query && (
+        <div className="query-debug" style={{ marginTop: 32 }}>
+          <button className="query-toggle" onClick={() => setShowQuery(!showQuery)}>
+            {showQuery ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            {showQuery ? 'Hide' : 'Show'} HiveQL Query
+          </button>
+          {showQuery && <pre className="query-code" style={{ marginTop: 8 }}>{query}</pre>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// SECTION COMPONENTS
+// ═══════════════════════════════════════════════════════════
+
+function OverviewSection({ data, g }) {
+  const refPieData = [
+    { name: 'Refundable', value: g(data, 'refundableCount'), color: '#22c55e' },
+    { name: 'Non-Refundable', value: g(data, 'nonRefundableCount'), color: '#ef4444' },
+  ];
+  const ecoPieData = [
+    { name: 'Basic Economy', value: g(data, 'basicEconomyCount'), color: '#3b82f6' },
+    { name: 'Standard Economy', value: g(data, 'standardEconomyCount'), color: '#f5a623' },
+  ];
+
+  return (
+    <>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
+        <StatCard label="Total Flights" value={g(data, 'totalFlights').toLocaleString()} icon="✈️" color="#3b82f6" />
+        <StatCard label="Avg Fare" value={`$${g(data, 'avgFare').toFixed(2)}`} icon="💰" color="#f5a623" />
+        <StatCard label="Min Fare" value={`$${g(data, 'minFare').toFixed(2)}`} icon="🏷️" color="#22c55e" />
+        <StatCard label="Max Fare" value={`$${g(data, 'maxFare').toFixed(2)}`} icon="💎" color="#ef4444" />
+      </div>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
+        <StatCard label="Avg Refundable" value={`$${g(data, 'avgFareRefundable').toFixed(2)}`} sub={`${g(data, 'refundableCount').toLocaleString()} tickets`} color="#22c55e" icon="🔄" />
+        <StatCard label="Avg Non-Refundable" value={`$${g(data, 'avgFareNonRefundable').toFixed(2)}`} sub={`${g(data, 'nonRefundableCount').toLocaleString()} tickets`} color="#ef4444" icon="🚫" />
+        <StatCard label="Flexibility Premium" value={`$${(g(data, 'avgFareRefundable') - g(data, 'avgFareNonRefundable')).toFixed(2)}`} sub="refundable − non-refundable" color="#a855f7" icon="📈" />
+      </div>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        <div className="chart-container" style={{ flex: 1, minWidth: 300 }}>
+          <div className="chart-title">Refundable vs Non-Refundable</div>
+          <ResponsiveContainer width="100%" height={280}>
+            <PieChart><Pie data={refPieData} cx="50%" cy="50%" outerRadius={100} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`} labelLine={false} fontSize={11}>
+              {refPieData.map((e, i) => <Cell key={i} fill={e.color} />)}
+            </Pie><Tooltip content={<DarkTooltip />} /></PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="chart-container" style={{ flex: 1, minWidth: 300 }}>
+          <div className="chart-title">Basic Economy vs Standard</div>
+          <ResponsiveContainer width="100%" height={280}>
+            <PieChart><Pie data={ecoPieData} cx="50%" cy="50%" outerRadius={100} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`} labelLine={false} fontSize={11}>
+              {ecoPieData.map((e, i) => <Cell key={i} fill={e.color} />)}
+            </Pie><Tooltip content={<DarkTooltip />} /></PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function TopAirlinesSection({ data }) {
+  const chartData = data.map(a => ({
     name: (a.airline || 'Unknown').length > 18 ? (a.airline || 'Unknown').substring(0, 16) + '…' : (a.airline || 'Unknown'),
     avgFare: Number(a.avgFare || a.avgfare || 0),
     flightCount: Number(a.flightCount || a.flightcount || 0),
   }));
+  return (
+    <div className="chart-container">
+      <ResponsiveContainer width="100%" height={480}>
+        <BarChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 80 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
+          <XAxis dataKey="name" stroke="#333" fontSize={11} angle={-35} textAnchor="end" height={100} />
+          <YAxis yAxisId="left" stroke="#f5a623" tickFormatter={(v) => `$${v}`} />
+          <YAxis yAxisId="right" orientation="right" stroke="#3b82f6" tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : v} />
+          <Tooltip content={<DarkTooltip />} />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
+          <Bar yAxisId="left" dataKey="avgFare" name="Avg Fare ($)" fill="#f5a623" radius={[4,4,0,0]} />
+          <Bar yAxisId="right" dataKey="flightCount" name="Flight Count" fill="#3b82f6" radius={[4,4,0,0]} opacity={0.6} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
 
-  const dowChartData = dayOfWeek.map(d => ({
+function DayOfWeekSection({ data }) {
+  const chartData = data.map(d => ({
     day: d.dayName || d.dayname || `Day ${d.dayNum || d.daynum}`,
     flights: Number(d.flightCount || d.flightcount || 0),
     avgFare: Number(d.avgFare || d.avgfare || 0),
   }));
+  return (
+    <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+      <div className="chart-container" style={{ flex: 1, minWidth: 350 }}>
+        <div className="chart-title">Flight Volume by Day</div>
+        <ResponsiveContainer width="100%" height={320}>
+          <BarChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
+            <XAxis dataKey="day" stroke="#333" fontSize={12} />
+            <YAxis stroke="#333" tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : `${(v/1e3).toFixed(0)}K`} />
+            <Tooltip content={<DarkTooltip />} />
+            <Bar dataKey="flights" name="Flights" fill="#3b82f6" radius={[4,4,0,0]}>
+              {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="chart-container" style={{ flex: 1, minWidth: 350 }}>
+        <div className="chart-title">Average Fare by Day</div>
+        <ResponsiveContainer width="100%" height={320}>
+          <BarChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
+            <XAxis dataKey="day" stroke="#333" fontSize={12} />
+            <YAxis stroke="#333" tickFormatter={(v) => `$${v}`} />
+            <Tooltip content={<DarkTooltip />} />
+            <Bar dataKey="avgFare" name="Avg Fare" fill="#f5a623" radius={[4,4,0,0]}>
+              {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
 
-  const bwChartData = bookingWindow
+function WeekendMidweekSection({ data }) {
+  return (
+    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+      {data.map((w, i) => {
+        const type = w.travelType || w.traveltype || 'Unknown';
+        const isWeekend = type.toLowerCase().includes('weekend');
+        return (
+          <StatCard key={i}
+            label={type}
+            value={`$${Number(w.avgFare || w.avgfare || 0).toFixed(2)}`}
+            sub={`${Number(w.flightCount || w.flightcount || 0).toLocaleString()} flights | Min $${Number(w.minFare || w.minfare || 0).toFixed(0)} | Max $${Number(w.maxFare || w.maxfare || 0).toFixed(0)}`}
+            color={isWeekend ? '#ef4444' : '#22c55e'}
+            icon={isWeekend ? '🌅' : '💼'}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function BookingWindowSection({ data }) {
+  const chartData = data
     .filter(b => Number(b.bookingWindow || b.bookingwindow) <= 120)
     .map(b => ({
       days: Number(b.bookingWindow || b.bookingwindow),
       avgFare: Number(b.avgFare || b.avgfare || 0),
       minFare: Number(b.minFare || b.minfare || 0),
     }));
+  return (
+    <>
+      <p style={{ color: '#666', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>
+        How does ticket price change as the flight date approaches?
+      </p>
+      <div className="chart-container">
+        <div className="chart-title">Average Fare vs Days Before Departure</div>
+        <ResponsiveContainer width="100%" height={420}>
+          <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+            <defs>
+              <linearGradient id="bwGradAvg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#f5a623" stopOpacity={0.3} /><stop offset="95%" stopColor="#f5a623" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="bwGradMin" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} /><stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
+            <XAxis dataKey="days" stroke="#333" fontSize={12} label={{ value: 'Days Before Departure', position: 'insideBottom', offset: -5, fill: '#555' }} />
+            <YAxis stroke="#333" tickFormatter={(v) => `$${v}`} />
+            <Tooltip content={<DarkTooltip />} />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Area type="monotone" dataKey="avgFare" name="Avg Fare" stroke="#f5a623" fill="url(#bwGradAvg)" strokeWidth={2} />
+            <Area type="monotone" dataKey="minFare" name="Min Fare" stroke="#22c55e" fill="url(#bwGradMin)" strokeWidth={1.5} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </>
+  );
+}
 
-  const ecoGapData = economyGap.slice(0, 15).map(r => ({
+function EconomyGapSection({ data }) {
+  const chartData = data.slice(0, 15).map(r => ({
     route: `${r.startingAirport || r.startingairport}→${r.destinationAirport || r.destinationairport}`,
     basic: Number(r.avgBasic || r.avgbasic || 0),
     standard: Number(r.avgStandard || r.avgstandard || 0),
     gap: Number(r.priceGap || r.pricegap || 0),
   }));
-
-  // Refundable pie data
-  const refPieData = overview ? [
-    { name: 'Refundable', value: g(overview, 'refundableCount'), color: '#22c55e' },
-    { name: 'Non-Refundable', value: g(overview, 'nonRefundableCount'), color: '#ef4444' },
-  ] : [];
-
-  const ecoPieData = overview ? [
-    { name: 'Basic Economy', value: g(overview, 'basicEconomyCount'), color: '#3b82f6' },
-    { name: 'Standard Economy', value: g(overview, 'standardEconomyCount'), color: '#f5a623' },
-  ] : [];
-
   return (
-    <div className="page-container">
-      <title>Analytics Dashboard — SkyQuery</title>
-
-      <div className="page-hero">
-        <h1>📊 Analytics Dashboard</h1>
-        <p>Comprehensive data analysis across the entire flight dataset</p>
+    <>
+      <div className="chart-container">
+        <ResponsiveContainer width="100%" height={450}>
+          <BarChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 80 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
+            <XAxis dataKey="route" stroke="#333" fontSize={10} angle={-40} textAnchor="end" height={100} />
+            <YAxis stroke="#333" tickFormatter={(v) => `$${v}`} />
+            <Tooltip content={<DarkTooltip />} />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Bar dataKey="basic" name="Basic Economy" fill="#3b82f6" radius={[4,4,0,0]} />
+            <Bar dataKey="standard" name="Standard Economy" fill="#f5a623" radius={[4,4,0,0]} />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
-
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <button className="btn-primary" onClick={loadAll} disabled={anyLoading} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <RefreshCw size={16} className={anyLoading ? 'spinning' : ''} />
-          {anyLoading ? 'Loading analytics…' : 'Refresh All Data'}
-        </button>
-        {anyLoading && (
-          <div style={{ marginTop: 8, fontSize: 13, color: '#888' }}>
-            ⏱ Each query scans ~80M rows. This may take a few minutes.
-          </div>
-        )}
+      <div className="data-table-wrapper" style={{ marginTop: 16 }}>
+        <table className="data-table">
+          <thead><tr><th>Route</th><th>Avg Basic</th><th>Avg Standard</th><th>Price Gap</th></tr></thead>
+          <tbody>
+            {chartData.map((r, i) => (
+              <tr key={i}>
+                <td style={{ fontWeight: 600 }}>{r.route}</td>
+                <td style={{ color: '#3b82f6' }}>${r.basic.toFixed(2)}</td>
+                <td style={{ color: '#f5a623' }}>${r.standard.toFixed(2)}</td>
+                <td style={{ color: r.gap > 0 ? '#ef4444' : '#22c55e', fontWeight: 700 }}>{r.gap > 0 ? '+' : ''}${r.gap.toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-
-      {/* ===== SECTION 1: Pricing Overview ===== */}
-      <SectionTitle>I. Pricing Overview</SectionTitle>
-      {loading.overview && <div className="loading-container"><div className="spinner" /><div className="loading-text">Loading pricing overview…</div></div>}
-      {errors.overview && <div className="error-banner">⚠ {errors.overview}</div>}
-      {overview && (
-        <>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
-            <StatCard label="Total Flights" value={g(overview, 'totalFlights').toLocaleString()} icon="✈️" color="#3b82f6" />
-            <StatCard label="Avg Fare" value={`$${g(overview, 'avgFare').toFixed(2)}`} icon="💰" color="#f5a623" />
-            <StatCard label="Min Fare" value={`$${g(overview, 'minFare').toFixed(2)}`} icon="🏷️" color="#22c55e" />
-            <StatCard label="Max Fare" value={`$${g(overview, 'maxFare').toFixed(2)}`} icon="💎" color="#ef4444" />
-          </div>
-
-          {/* Flexibility Premium */}
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
-            <StatCard
-              label="Avg Refundable Fare"
-              value={`$${g(overview, 'avgFareRefundable').toFixed(2)}`}
-              sub={`${g(overview, 'refundableCount').toLocaleString()} tickets`}
-              color="#22c55e" icon="🔄"
-            />
-            <StatCard
-              label="Avg Non-Refundable Fare"
-              value={`$${g(overview, 'avgFareNonRefundable').toFixed(2)}`}
-              sub={`${g(overview, 'nonRefundableCount').toLocaleString()} tickets`}
-              color="#ef4444" icon="🚫"
-            />
-            <StatCard
-              label="Flexibility Premium"
-              value={`$${(g(overview, 'avgFareRefundable') - g(overview, 'avgFareNonRefundable')).toFixed(2)}`}
-              sub="refundable − non-refundable"
-              color="#a855f7" icon="📈"
-            />
-          </div>
-
-          {/* Pie Charts Row */}
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
-            <div className="chart-container" style={{ flex: 1, minWidth: 300 }}>
-              <div className="chart-title">Refundable vs Non-Refundable</div>
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie data={refPieData} cx="50%" cy="50%" outerRadius={100} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`} labelLine={false} fontSize={11}>
-                    {refPieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                  </Pie>
-                  <Tooltip content={<DarkTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="chart-container" style={{ flex: 1, minWidth: 300 }}>
-              <div className="chart-title">Basic Economy vs Standard</div>
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie data={ecoPieData} cx="50%" cy="50%" outerRadius={100} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`} labelLine={false} fontSize={11}>
-                    {ecoPieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                  </Pie>
-                  <Tooltip content={<DarkTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* ===== SECTION 2: Top 15 Airlines ===== */}
-      <SectionTitle>II. Top 15 Airlines by Volume</SectionTitle>
-      {loading.topAirlines && <div className="loading-container"><div className="spinner" /><div className="loading-text">Loading airline data…</div></div>}
-      {errors.topAirlines && <div className="error-banner">⚠ {errors.topAirlines}</div>}
-      {airlineChartData.length > 0 && (
-        <div className="chart-container">
-          <ResponsiveContainer width="100%" height={450}>
-            <BarChart data={airlineChartData} margin={{ top: 10, right: 30, left: 10, bottom: 80 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-              <XAxis dataKey="name" stroke="#333" fontSize={11} angle={-35} textAnchor="end" height={100} />
-              <YAxis yAxisId="left" stroke="#f5a623" tickFormatter={(v) => `$${v}`} />
-              <YAxis yAxisId="right" orientation="right" stroke="#3b82f6" tickFormatter={(v) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v} />
-              <Tooltip content={<DarkTooltip />} />
-              <Legend wrapperStyle={{ fontSize: 12, color: '#555' }} />
-              <Bar yAxisId="left" dataKey="avgFare" name="Avg Fare ($)" fill="#f5a623" radius={[4, 4, 0, 0]} />
-              <Bar yAxisId="right" dataKey="flightCount" name="Flight Count" fill="#3b82f6" radius={[4, 4, 0, 0]} opacity={0.6} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* ===== SECTION 3: Day of Week ===== */}
-      <SectionTitle>III. Flights & Pricing by Day of Week</SectionTitle>
-      {loading.dayOfWeek && <div className="loading-container"><div className="spinner" /><div className="loading-text">Loading day-of-week data…</div></div>}
-      {errors.dayOfWeek && <div className="error-banner">⚠ {errors.dayOfWeek}</div>}
-      {dowChartData.length > 0 && (
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          <div className="chart-container" style={{ flex: 1, minWidth: 350 }}>
-            <div className="chart-title">Flight Volume by Day</div>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={dowChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-                <XAxis dataKey="day" stroke="#333" fontSize={12} />
-                <YAxis stroke="#333" tickFormatter={(v) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : `${(v / 1000).toFixed(0)}K`} />
-                <Tooltip content={<DarkTooltip />} />
-                <Bar dataKey="flights" name="Flights" fill="#3b82f6" radius={[4, 4, 0, 0]}>
-                  {dowChartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="chart-container" style={{ flex: 1, minWidth: 350 }}>
-            <div className="chart-title">Average Fare by Day</div>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={dowChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-                <XAxis dataKey="day" stroke="#333" fontSize={12} />
-                <YAxis stroke="#333" tickFormatter={(v) => `$${v}`} />
-                <Tooltip content={<DarkTooltip />} />
-                <Bar dataKey="avgFare" name="Avg Fare" fill="#f5a623" radius={[4, 4, 0, 0]}>
-                  {dowChartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
-
-      {/* ===== SECTION 4: Weekend vs Midweek ===== */}
-      {weekendMidweek.length > 0 && (
-        <>
-          <SectionTitle>IV. Weekend vs Mid-week Pricing</SectionTitle>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
-            {weekendMidweek.map((w, i) => {
-              const type = w.travelType || w.traveltype || 'Unknown';
-              const isWeekend = type.toLowerCase().includes('weekend');
-              return (
-                <StatCard key={i}
-                  label={type}
-                  value={`$${Number(w.avgFare || w.avgfare || 0).toFixed(2)}`}
-                  sub={`${Number(w.flightCount || w.flightcount || 0).toLocaleString()} flights | Min $${Number(w.minFare || w.minfare || 0).toFixed(0)} | Max $${Number(w.maxFare || w.maxfare || 0).toFixed(0)}`}
-                  color={isWeekend ? '#ef4444' : '#22c55e'}
-                  icon={isWeekend ? '🌅' : '💼'}
-                />
-              );
-            })}
-          </div>
-        </>
-      )}
-
-      {/* ===== SECTION 5: Booking Window ===== */}
-      <SectionTitle>V. Booking Window Analysis</SectionTitle>
-      <p style={{ color: '#666', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>
-        How does ticket price change as the flight date approaches? (Days before departure vs. Average fare)
-      </p>
-      {loading.bookingWindow && <div className="loading-container"><div className="spinner" /><div className="loading-text">Loading booking window data…</div></div>}
-      {errors.bookingWindow && <div className="error-banner">⚠ {errors.bookingWindow}</div>}
-      {bwChartData.length > 0 && (
-        <div className="chart-container">
-          <div className="chart-title">Average Fare vs Days Before Departure</div>
-          <ResponsiveContainer width="100%" height={400}>
-            <AreaChart data={bwChartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
-              <defs>
-                <linearGradient id="bwGradAvg" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f5a623" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#f5a623" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="bwGradMin" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-              <XAxis dataKey="days" stroke="#333" fontSize={12} label={{ value: 'Days Before Departure', position: 'insideBottom', offset: -5, fill: '#555' }} />
-              <YAxis stroke="#333" tickFormatter={(v) => `$${v}`} />
-              <Tooltip content={<DarkTooltip />} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Area type="monotone" dataKey="avgFare" name="Avg Fare" stroke="#f5a623" fill="url(#bwGradAvg)" strokeWidth={2} />
-              <Area type="monotone" dataKey="minFare" name="Min Fare" stroke="#22c55e" fill="url(#bwGradMin)" strokeWidth={1.5} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* ===== SECTION 6: Economy Class Gap ===== */}
-      <SectionTitle>VI. Basic vs Standard Economy Price Gap (Top Routes)</SectionTitle>
-      {loading.economyGap && <div className="loading-container"><div className="spinner" /><div className="loading-text">Loading economy comparison…</div></div>}
-      {errors.economyGap && <div className="error-banner">⚠ {errors.economyGap}</div>}
-      {ecoGapData.length > 0 && (
-        <>
-          <div className="chart-container">
-            <ResponsiveContainer width="100%" height={450}>
-              <BarChart data={ecoGapData} margin={{ top: 10, right: 30, left: 10, bottom: 80 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-                <XAxis dataKey="route" stroke="#333" fontSize={10} angle={-40} textAnchor="end" height={100} />
-                <YAxis stroke="#333" tickFormatter={(v) => `$${v}`} />
-                <Tooltip content={<DarkTooltip />} />
-                <Legend wrapperStyle={{ fontSize: 12, color: '#555' }} />
-                <Bar dataKey="basic" name="Basic Economy" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="standard" name="Standard Economy" fill="#f5a623" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="data-table-wrapper" style={{ marginTop: 16 }}>
-            <table className="data-table">
-              <thead>
-                <tr><th>Route</th><th>Avg Basic</th><th>Avg Standard</th><th>Price Gap</th></tr>
-              </thead>
-              <tbody>
-                {ecoGapData.map((r, i) => (
-                  <tr key={i}>
-                    <td style={{ fontWeight: 600 }}>{r.route}</td>
-                    <td style={{ color: '#3b82f6' }}>${r.basic.toFixed(2)}</td>
-                    <td style={{ color: '#f5a623' }}>${r.standard.toFixed(2)}</td>
-                    <td style={{ color: r.gap > 0 ? '#ef4444' : '#22c55e', fontWeight: 700 }}>
-                      {r.gap > 0 ? '+' : ''}${r.gap.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-
-      {/* ===== Debug Queries ===== */}
-      {Object.keys(queries).length > 0 && (
-        <div className="query-debug" style={{ marginTop: 32 }}>
-          <button className="query-toggle" onClick={() => setShowQueries(!showQueries)}>
-            {showQueries ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            {showQueries ? 'Hide' : 'Show'} All HiveQL Queries ({Object.keys(queries).length})
-          </button>
-          {showQueries && Object.entries(queries).map(([key, sql]) => (
-            <div key={key} style={{ marginTop: 12 }}>
-              <div style={{ fontSize: 12, color: '#f5a623', fontWeight: 600, marginBottom: 4 }}>{key}</div>
-              <pre className="query-code">{sql}</pre>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    </>
   );
 }
 
