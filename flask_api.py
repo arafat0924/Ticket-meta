@@ -8,9 +8,42 @@ from pyspark.sql import SparkSession
 import os
 import json
 import re
+import time
+import threading
 
 app = Flask(__name__)
 CORS(app)
+
+# ---------------------------------------------------------------------------
+# In-Memory Cache (analytics results cached for 1 hour)
+# ---------------------------------------------------------------------------
+_cache = {}
+_cache_lock = threading.Lock()
+CACHE_TTL = 3600  # 1 hour in seconds
+
+def cache_get(key):
+    """Get cached result if still valid."""
+    with _cache_lock:
+        entry = _cache.get(key)
+        if entry and (time.time() - entry["ts"]) < CACHE_TTL:
+            return entry["data"]
+    return None
+
+def cache_set(key, data):
+    """Store result in cache."""
+    with _cache_lock:
+        _cache[key] = {"data": data, "ts": time.time()}
+
+def cached_query(cache_key, query_fn):
+    """Run query_fn() with caching. Returns cached result if available."""
+    cached = cache_get(cache_key)
+    if cached is not None:
+        cached["cached"] = True
+        return cached
+    result = query_fn()
+    result["cached"] = False
+    cache_set(cache_key, result)
+    return result
 
 # ---------------------------------------------------------------------------
 # PySpark Session (singleton)
@@ -82,6 +115,18 @@ def clean_row(row_dict):
         else:
             cleaned[key] = v
     return cleaned
+
+
+# ---------------------------------------------------------------------------
+# Cache Management
+# ---------------------------------------------------------------------------
+@app.route("/api/cache/clear", methods=["POST", "GET"])
+def clear_cache():
+    """Clear all cached analytics results."""
+    with _cache_lock:
+        count = len(_cache)
+        _cache.clear()
+    return jsonify({"message": f"Cleared {count} cached entries", "cleared": count})
 
 
 # ---------------------------------------------------------------------------
@@ -270,29 +315,32 @@ def airline_comparison():
 # ---------------------------------------------------------------------------
 @app.route("/api/analytics/overview")
 def analytics_overview():
-    tbl = get_flight_table()
-    sql = f"""
-        SELECT
-            COUNT(*)                                        AS totalFlights,
-            ROUND(AVG(CAST(totalFare AS DOUBLE)), 2)        AS avgFare,
-            ROUND(MIN(CAST(totalFare AS DOUBLE)), 2)        AS minFare,
-            ROUND(MAX(CAST(totalFare AS DOUBLE)), 2)        AS maxFare,
-            SUM(CASE WHEN isRefundable = 'True'  THEN 1 ELSE 0 END) AS refundableCount,
-            SUM(CASE WHEN isRefundable = 'False' THEN 1 ELSE 0 END) AS nonRefundableCount,
-            ROUND(AVG(CASE WHEN isRefundable = 'True'  THEN CAST(totalFare AS DOUBLE) END), 2) AS avgFareRefundable,
-            ROUND(AVG(CASE WHEN isRefundable = 'False' THEN CAST(totalFare AS DOUBLE) END), 2) AS avgFareNonRefundable,
-            SUM(CASE WHEN isBasicEconomy = 'True'  THEN 1 ELSE 0 END) AS basicEconomyCount,
-            SUM(CASE WHEN isBasicEconomy = 'False' THEN 1 ELSE 0 END) AS standardEconomyCount,
-            SUM(CASE WHEN isNonStop = 'True'  THEN 1 ELSE 0 END) AS nonstopCount,
-            SUM(CASE WHEN isNonStop = 'False' THEN 1 ELSE 0 END) AS connectingCount
-        FROM {tbl}
-    """
-    try:
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+            SELECT
+                COUNT(*)                                        AS totalFlights,
+                ROUND(AVG(CAST(totalFare AS DOUBLE)), 2)        AS avgFare,
+                ROUND(MIN(CAST(totalFare AS DOUBLE)), 2)        AS minFare,
+                ROUND(MAX(CAST(totalFare AS DOUBLE)), 2)        AS maxFare,
+                SUM(CASE WHEN isRefundable = 'True'  THEN 1 ELSE 0 END) AS refundableCount,
+                SUM(CASE WHEN isRefundable = 'False' THEN 1 ELSE 0 END) AS nonRefundableCount,
+                ROUND(AVG(CASE WHEN isRefundable = 'True'  THEN CAST(totalFare AS DOUBLE) END), 2) AS avgFareRefundable,
+                ROUND(AVG(CASE WHEN isRefundable = 'False' THEN CAST(totalFare AS DOUBLE) END), 2) AS avgFareNonRefundable,
+                SUM(CASE WHEN isBasicEconomy = 'True'  THEN 1 ELSE 0 END) AS basicEconomyCount,
+                SUM(CASE WHEN isBasicEconomy = 'False' THEN 1 ELSE 0 END) AS standardEconomyCount,
+                SUM(CASE WHEN isNonStop = 'True'  THEN 1 ELSE 0 END) AS nonstopCount,
+                SUM(CASE WHEN isNonStop = 'False' THEN 1 ELSE 0 END) AS connectingCount
+            FROM {tbl}
+        """
         _, rows = run_query(sql)
         overview = clean_row(rows[0]) if rows else {}
-        return jsonify({"overview": overview, "query": sql.strip()})
+        return {"overview": overview, "query": sql.strip()}
+    try:
+        result = cached_query("analytics_overview", _query)
+        return jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e), "query": sql.strip()}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -301,25 +349,27 @@ def analytics_overview():
 # ---------------------------------------------------------------------------
 @app.route("/api/analytics/top-airlines")
 def analytics_top_airlines():
-    tbl = get_flight_table()
-    sql = f"""
-        SELECT segmentsAirlineName AS airline,
-               COUNT(*) AS flightCount,
-               ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgFare,
-               ROUND(MIN(CAST(totalFare AS DOUBLE)), 2) AS minFare,
-               ROUND(MAX(CAST(totalFare AS DOUBLE)), 2) AS maxFare
-        FROM {tbl}
-        WHERE segmentsAirlineName IS NOT NULL AND segmentsAirlineName != ''
-        GROUP BY segmentsAirlineName
-        ORDER BY flightCount DESC
-        LIMIT 15
-    """
-    try:
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+            SELECT segmentsAirlineName AS airline,
+                   COUNT(*) AS flightCount,
+                   ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgFare,
+                   ROUND(MIN(CAST(totalFare AS DOUBLE)), 2) AS minFare,
+                   ROUND(MAX(CAST(totalFare AS DOUBLE)), 2) AS maxFare
+            FROM {tbl}
+            WHERE segmentsAirlineName IS NOT NULL AND segmentsAirlineName != ''
+            GROUP BY segmentsAirlineName
+            ORDER BY flightCount DESC
+            LIMIT 15
+        """
         _, rows = run_query(sql)
         airlines = [clean_row(r) for r in rows]
-        return jsonify({"airlines": airlines, "query": sql.strip()})
+        return {"airlines": airlines, "query": sql.strip()}
+    try:
+        return jsonify(cached_query("analytics_top_airlines", _query))
     except Exception as e:
-        return jsonify({"error": str(e), "query": sql.strip()}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -328,29 +378,31 @@ def analytics_top_airlines():
 # ---------------------------------------------------------------------------
 @app.route("/api/analytics/day-of-week")
 def analytics_day_of_week():
-    tbl = get_flight_table()
-    sql = f"""
-        SELECT
-            CASE DAYOFWEEK(flightDate)
-                WHEN 1 THEN 'Sunday'    WHEN 2 THEN 'Monday'
-                WHEN 3 THEN 'Tuesday'   WHEN 4 THEN 'Wednesday'
-                WHEN 5 THEN 'Thursday'  WHEN 6 THEN 'Friday'
-                WHEN 7 THEN 'Saturday'
-            END AS dayName,
-            DAYOFWEEK(flightDate) AS dayNum,
-            COUNT(*) AS flightCount,
-            ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgFare
-        FROM {tbl}
-        WHERE flightDate IS NOT NULL
-        GROUP BY DAYOFWEEK(flightDate)
-        ORDER BY DAYOFWEEK(flightDate)
-    """
-    try:
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+            SELECT
+                CASE DAYOFWEEK(flightDate)
+                    WHEN 1 THEN 'Sunday'    WHEN 2 THEN 'Monday'
+                    WHEN 3 THEN 'Tuesday'   WHEN 4 THEN 'Wednesday'
+                    WHEN 5 THEN 'Thursday'  WHEN 6 THEN 'Friday'
+                    WHEN 7 THEN 'Saturday'
+                END AS dayName,
+                DAYOFWEEK(flightDate) AS dayNum,
+                COUNT(*) AS flightCount,
+                ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgFare
+            FROM {tbl}
+            WHERE flightDate IS NOT NULL
+            GROUP BY DAYOFWEEK(flightDate)
+            ORDER BY DAYOFWEEK(flightDate)
+        """
         _, rows = run_query(sql)
         days = [clean_row(r) for r in rows]
-        return jsonify({"days": days, "query": sql.strip()})
+        return {"days": days, "query": sql.strip()}
+    try:
+        return jsonify(cached_query("analytics_day_of_week", _query))
     except Exception as e:
-        return jsonify({"error": str(e), "query": sql.strip()}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -359,26 +411,28 @@ def analytics_day_of_week():
 # ---------------------------------------------------------------------------
 @app.route("/api/analytics/booking-window")
 def analytics_booking_window():
-    tbl = get_flight_table()
-    sql = f"""
-        SELECT
-            DATEDIFF(flightDate, searchDate) AS bookingWindow,
-            COUNT(*) AS flightCount,
-            ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgFare,
-            ROUND(MIN(CAST(totalFare AS DOUBLE)), 2) AS minFare
-        FROM {tbl}
-        WHERE flightDate IS NOT NULL AND searchDate IS NOT NULL
-          AND DATEDIFF(flightDate, searchDate) >= 0
-          AND DATEDIFF(flightDate, searchDate) <= 180
-        GROUP BY DATEDIFF(flightDate, searchDate)
-        ORDER BY bookingWindow ASC
-    """
-    try:
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+            SELECT
+                DATEDIFF(flightDate, searchDate) AS bookingWindow,
+                COUNT(*) AS flightCount,
+                ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgFare,
+                ROUND(MIN(CAST(totalFare AS DOUBLE)), 2) AS minFare
+            FROM {tbl}
+            WHERE flightDate IS NOT NULL AND searchDate IS NOT NULL
+              AND DATEDIFF(flightDate, searchDate) >= 0
+              AND DATEDIFF(flightDate, searchDate) <= 180
+            GROUP BY DATEDIFF(flightDate, searchDate)
+            ORDER BY bookingWindow ASC
+        """
         _, rows = run_query(sql)
         data = [clean_row(r) for r in rows]
-        return jsonify({"bookingWindow": data, "query": sql.strip()})
+        return {"bookingWindow": data, "query": sql.strip()}
+    try:
+        return jsonify(cached_query("analytics_booking_window", _query))
     except Exception as e:
-        return jsonify({"error": str(e), "query": sql.strip()}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -387,30 +441,32 @@ def analytics_booking_window():
 # ---------------------------------------------------------------------------
 @app.route("/api/analytics/weekend-midweek")
 def analytics_weekend_midweek():
-    tbl = get_flight_table()
-    sql = f"""
-        SELECT
-            CASE
-                WHEN DAYOFWEEK(flightDate) IN (1, 6, 7) THEN 'Weekend (Fri/Sat/Sun)'
-                ELSE 'Midweek (Mon-Thu)'
-            END AS travelType,
-            COUNT(*) AS flightCount,
-            ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgFare,
-            ROUND(MIN(CAST(totalFare AS DOUBLE)), 2) AS minFare,
-            ROUND(MAX(CAST(totalFare AS DOUBLE)), 2) AS maxFare
-        FROM {tbl}
-        WHERE flightDate IS NOT NULL
-        GROUP BY CASE
-                WHEN DAYOFWEEK(flightDate) IN (1, 6, 7) THEN 'Weekend (Fri/Sat/Sun)'
-                ELSE 'Midweek (Mon-Thu)'
-            END
-    """
-    try:
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+            SELECT
+                CASE
+                    WHEN DAYOFWEEK(flightDate) IN (1, 6, 7) THEN 'Weekend (Fri/Sat/Sun)'
+                    ELSE 'Midweek (Mon-Thu)'
+                END AS travelType,
+                COUNT(*) AS flightCount,
+                ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgFare,
+                ROUND(MIN(CAST(totalFare AS DOUBLE)), 2) AS minFare,
+                ROUND(MAX(CAST(totalFare AS DOUBLE)), 2) AS maxFare
+            FROM {tbl}
+            WHERE flightDate IS NOT NULL
+            GROUP BY CASE
+                    WHEN DAYOFWEEK(flightDate) IN (1, 6, 7) THEN 'Weekend (Fri/Sat/Sun)'
+                    ELSE 'Midweek (Mon-Thu)'
+                END
+        """
         _, rows = run_query(sql)
         data = [clean_row(r) for r in rows]
-        return jsonify({"comparison": data, "query": sql.strip()})
+        return {"comparison": data, "query": sql.strip()}
+    try:
+        return jsonify(cached_query("analytics_weekend_midweek", _query))
     except Exception as e:
-        return jsonify({"error": str(e), "query": sql.strip()}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -419,30 +475,32 @@ def analytics_weekend_midweek():
 # ---------------------------------------------------------------------------
 @app.route("/api/analytics/economy-gap")
 def analytics_economy_gap():
-    tbl = get_flight_table()
-    sql = f"""
-        SELECT
-            startingAirport, destinationAirport,
-            ROUND(AVG(CASE WHEN isBasicEconomy = 'True'  THEN CAST(totalFare AS DOUBLE) END), 2) AS avgBasic,
-            ROUND(AVG(CASE WHEN isBasicEconomy = 'False' THEN CAST(totalFare AS DOUBLE) END), 2) AS avgStandard,
-            ROUND(
-                AVG(CASE WHEN isBasicEconomy = 'False' THEN CAST(totalFare AS DOUBLE) END) -
-                AVG(CASE WHEN isBasicEconomy = 'True'  THEN CAST(totalFare AS DOUBLE) END)
-            , 2) AS priceGap,
-            COUNT(*) AS totalFlights
-        FROM {tbl}
-        GROUP BY startingAirport, destinationAirport
-        HAVING AVG(CASE WHEN isBasicEconomy = 'True' THEN CAST(totalFare AS DOUBLE) END) IS NOT NULL
-           AND AVG(CASE WHEN isBasicEconomy = 'False' THEN CAST(totalFare AS DOUBLE) END) IS NOT NULL
-        ORDER BY priceGap DESC
-        LIMIT 20
-    """
-    try:
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+            SELECT
+                startingAirport, destinationAirport,
+                ROUND(AVG(CASE WHEN isBasicEconomy = 'True'  THEN CAST(totalFare AS DOUBLE) END), 2) AS avgBasic,
+                ROUND(AVG(CASE WHEN isBasicEconomy = 'False' THEN CAST(totalFare AS DOUBLE) END), 2) AS avgStandard,
+                ROUND(
+                    AVG(CASE WHEN isBasicEconomy = 'False' THEN CAST(totalFare AS DOUBLE) END) -
+                    AVG(CASE WHEN isBasicEconomy = 'True'  THEN CAST(totalFare AS DOUBLE) END)
+                , 2) AS priceGap,
+                COUNT(*) AS totalFlights
+            FROM {tbl}
+            GROUP BY startingAirport, destinationAirport
+            HAVING AVG(CASE WHEN isBasicEconomy = 'True' THEN CAST(totalFare AS DOUBLE) END) IS NOT NULL
+               AND AVG(CASE WHEN isBasicEconomy = 'False' THEN CAST(totalFare AS DOUBLE) END) IS NOT NULL
+            ORDER BY priceGap DESC
+            LIMIT 20
+        """
         _, rows = run_query(sql)
         data = [clean_row(r) for r in rows]
-        return jsonify({"routes": data, "query": sql.strip()})
+        return {"routes": data, "query": sql.strip()}
+    try:
+        return jsonify(cached_query("analytics_economy_gap", _query))
     except Exception as e:
-        return jsonify({"error": str(e), "query": sql.strip()}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 # ---------------------------------------------------------------------------
