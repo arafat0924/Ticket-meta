@@ -14,6 +14,20 @@ export const airlineComparison = (params) => api.get('/airline-comparison', { pa
 export const searchAirports = (params) => api.get('/airports', { params });
 export const healthCheck = () => api.get('/health');
 
+// Analytics endpoints
+export const analyticsOverview = () => api.get('/analytics/overview');
+export const analyticsTopAirlines = () => api.get('/analytics/top-airlines');
+export const analyticsDayOfWeek = () => api.get('/analytics/day-of-week');
+export const analyticsBookingWindow = () => api.get('/analytics/booking-window');
+export const analyticsWeekendMidweek = () => api.get('/analytics/weekend-midweek');
+export const analyticsEconomyGap = () => api.get('/analytics/economy-gap');
+
+// Flight Splicing
+export const flightSplicing = (params) => api.get('/flight-splicing', { params });
+
+// Where to Fly with budget + distance
+export const whereToFlyBudget = (params) => api.get('/where-to-fly-budget', { params });
+
 // Legacy non-streaming chatbot (fallback)
 export const chatbot = (question, history = []) => api.post('/chatbot', { question, history });
 

@@ -8,6 +8,9 @@ import WhenToFly from './pages/WhenToFly';
 import AirlineComparison from './pages/AirlineComparison';
 import Chatbot from './pages/Chatbot';
 import AirportExplorer from './pages/AirportExplorer';
+import AnalyticsDashboard from './pages/AnalyticsDashboard';
+import FlightSplicing from './pages/FlightSplicing';
+import BudgetExplorer from './pages/BudgetExplorer';
 import './App.css';
 
 function AppContent() {
@@ -23,6 +26,9 @@ function AppContent() {
         <Route path="/where-to-fly" element={<WhereToFly />} />
         <Route path="/when-to-fly" element={<WhenToFly />} />
         <Route path="/airline-comparison" element={<AirlineComparison />} />
+        <Route path="/analytics" element={<AnalyticsDashboard />} />
+        <Route path="/budget-explorer" element={<BudgetExplorer />} />
+        <Route path="/flight-splicing" element={<FlightSplicing />} />
         <Route path="/chatbot" element={<Chatbot />} />
         <Route path="/airports" element={<AirportExplorer />} />
       </Routes>

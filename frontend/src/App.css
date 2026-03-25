@@ -685,6 +685,10 @@
   to { transform: rotate(360deg); }
 }
 
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
 .loading-text {
   color: #444;
   font-size: 14px;

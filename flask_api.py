@@ -265,7 +265,319 @@ def airline_comparison():
 
 
 # ---------------------------------------------------------------------------
-# 5. Airport Search
+# 5a. Analytics – Pricing Overview
+#     GET /api/analytics/overview
+# ---------------------------------------------------------------------------
+@app.route("/api/analytics/overview")
+def analytics_overview():
+    tbl = get_flight_table()
+    sql = f"""
+        SELECT
+            COUNT(*)                                        AS totalFlights,
+            ROUND(AVG(CAST(totalFare AS DOUBLE)), 2)        AS avgFare,
+            ROUND(MIN(CAST(totalFare AS DOUBLE)), 2)        AS minFare,
+            ROUND(MAX(CAST(totalFare AS DOUBLE)), 2)        AS maxFare,
+            SUM(CASE WHEN isRefundable = 'True'  THEN 1 ELSE 0 END) AS refundableCount,
+            SUM(CASE WHEN isRefundable = 'False' THEN 1 ELSE 0 END) AS nonRefundableCount,
+            ROUND(AVG(CASE WHEN isRefundable = 'True'  THEN CAST(totalFare AS DOUBLE) END), 2) AS avgFareRefundable,
+            ROUND(AVG(CASE WHEN isRefundable = 'False' THEN CAST(totalFare AS DOUBLE) END), 2) AS avgFareNonRefundable,
+            SUM(CASE WHEN isBasicEconomy = 'True'  THEN 1 ELSE 0 END) AS basicEconomyCount,
+            SUM(CASE WHEN isBasicEconomy = 'False' THEN 1 ELSE 0 END) AS standardEconomyCount,
+            SUM(CASE WHEN isNonStop = 'True'  THEN 1 ELSE 0 END) AS nonstopCount,
+            SUM(CASE WHEN isNonStop = 'False' THEN 1 ELSE 0 END) AS connectingCount
+        FROM {tbl}
+    """
+    try:
+        _, rows = run_query(sql)
+        overview = clean_row(rows[0]) if rows else {}
+        return jsonify({"overview": overview, "query": sql.strip()})
+    except Exception as e:
+        return jsonify({"error": str(e), "query": sql.strip()}), 500
+
+
+# ---------------------------------------------------------------------------
+# 5b. Analytics – Top 15 Airlines
+#     GET /api/analytics/top-airlines
+# ---------------------------------------------------------------------------
+@app.route("/api/analytics/top-airlines")
+def analytics_top_airlines():
+    tbl = get_flight_table()
+    sql = f"""
+        SELECT segmentsAirlineName AS airline,
+               COUNT(*) AS flightCount,
+               ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgFare,
+               ROUND(MIN(CAST(totalFare AS DOUBLE)), 2) AS minFare,
+               ROUND(MAX(CAST(totalFare AS DOUBLE)), 2) AS maxFare
+        FROM {tbl}
+        WHERE segmentsAirlineName IS NOT NULL AND segmentsAirlineName != ''
+        GROUP BY segmentsAirlineName
+        ORDER BY flightCount DESC
+        LIMIT 15
+    """
+    try:
+        _, rows = run_query(sql)
+        airlines = [clean_row(r) for r in rows]
+        return jsonify({"airlines": airlines, "query": sql.strip()})
+    except Exception as e:
+        return jsonify({"error": str(e), "query": sql.strip()}), 500
+
+
+# ---------------------------------------------------------------------------
+# 5c. Analytics – Flights by Day of Week
+#     GET /api/analytics/day-of-week
+# ---------------------------------------------------------------------------
+@app.route("/api/analytics/day-of-week")
+def analytics_day_of_week():
+    tbl = get_flight_table()
+    sql = f"""
+        SELECT
+            CASE DAYOFWEEK(flightDate)
+                WHEN 1 THEN 'Sunday'    WHEN 2 THEN 'Monday'
+                WHEN 3 THEN 'Tuesday'   WHEN 4 THEN 'Wednesday'
+                WHEN 5 THEN 'Thursday'  WHEN 6 THEN 'Friday'
+                WHEN 7 THEN 'Saturday'
+            END AS dayName,
+            DAYOFWEEK(flightDate) AS dayNum,
+            COUNT(*) AS flightCount,
+            ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgFare
+        FROM {tbl}
+        WHERE flightDate IS NOT NULL
+        GROUP BY DAYOFWEEK(flightDate)
+        ORDER BY DAYOFWEEK(flightDate)
+    """
+    try:
+        _, rows = run_query(sql)
+        days = [clean_row(r) for r in rows]
+        return jsonify({"days": days, "query": sql.strip()})
+    except Exception as e:
+        return jsonify({"error": str(e), "query": sql.strip()}), 500
+
+
+# ---------------------------------------------------------------------------
+# 5d. Analytics – Booking Window (avg price vs days before departure)
+#     GET /api/analytics/booking-window
+# ---------------------------------------------------------------------------
+@app.route("/api/analytics/booking-window")
+def analytics_booking_window():
+    tbl = get_flight_table()
+    sql = f"""
+        SELECT
+            DATEDIFF(flightDate, searchDate) AS bookingWindow,
+            COUNT(*) AS flightCount,
+            ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgFare,
+            ROUND(MIN(CAST(totalFare AS DOUBLE)), 2) AS minFare
+        FROM {tbl}
+        WHERE flightDate IS NOT NULL AND searchDate IS NOT NULL
+          AND DATEDIFF(flightDate, searchDate) >= 0
+          AND DATEDIFF(flightDate, searchDate) <= 180
+        GROUP BY DATEDIFF(flightDate, searchDate)
+        ORDER BY bookingWindow ASC
+    """
+    try:
+        _, rows = run_query(sql)
+        data = [clean_row(r) for r in rows]
+        return jsonify({"bookingWindow": data, "query": sql.strip()})
+    except Exception as e:
+        return jsonify({"error": str(e), "query": sql.strip()}), 500
+
+
+# ---------------------------------------------------------------------------
+# 5e. Analytics – Weekend vs Mid-week Pricing
+#     GET /api/analytics/weekend-midweek
+# ---------------------------------------------------------------------------
+@app.route("/api/analytics/weekend-midweek")
+def analytics_weekend_midweek():
+    tbl = get_flight_table()
+    sql = f"""
+        SELECT
+            CASE
+                WHEN DAYOFWEEK(flightDate) IN (1, 6, 7) THEN 'Weekend (Fri/Sat/Sun)'
+                ELSE 'Midweek (Mon-Thu)'
+            END AS travelType,
+            COUNT(*) AS flightCount,
+            ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgFare,
+            ROUND(MIN(CAST(totalFare AS DOUBLE)), 2) AS minFare,
+            ROUND(MAX(CAST(totalFare AS DOUBLE)), 2) AS maxFare
+        FROM {tbl}
+        WHERE flightDate IS NOT NULL
+        GROUP BY CASE
+                WHEN DAYOFWEEK(flightDate) IN (1, 6, 7) THEN 'Weekend (Fri/Sat/Sun)'
+                ELSE 'Midweek (Mon-Thu)'
+            END
+    """
+    try:
+        _, rows = run_query(sql)
+        data = [clean_row(r) for r in rows]
+        return jsonify({"comparison": data, "query": sql.strip()})
+    except Exception as e:
+        return jsonify({"error": str(e), "query": sql.strip()}), 500
+
+
+# ---------------------------------------------------------------------------
+# 5f. Analytics – Basic vs Standard Economy Price Gap
+#     GET /api/analytics/economy-gap
+# ---------------------------------------------------------------------------
+@app.route("/api/analytics/economy-gap")
+def analytics_economy_gap():
+    tbl = get_flight_table()
+    sql = f"""
+        SELECT
+            startingAirport, destinationAirport,
+            ROUND(AVG(CASE WHEN isBasicEconomy = 'True'  THEN CAST(totalFare AS DOUBLE) END), 2) AS avgBasic,
+            ROUND(AVG(CASE WHEN isBasicEconomy = 'False' THEN CAST(totalFare AS DOUBLE) END), 2) AS avgStandard,
+            ROUND(
+                AVG(CASE WHEN isBasicEconomy = 'False' THEN CAST(totalFare AS DOUBLE) END) -
+                AVG(CASE WHEN isBasicEconomy = 'True'  THEN CAST(totalFare AS DOUBLE) END)
+            , 2) AS priceGap,
+            COUNT(*) AS totalFlights
+        FROM {tbl}
+        GROUP BY startingAirport, destinationAirport
+        HAVING AVG(CASE WHEN isBasicEconomy = 'True' THEN CAST(totalFare AS DOUBLE) END) IS NOT NULL
+           AND AVG(CASE WHEN isBasicEconomy = 'False' THEN CAST(totalFare AS DOUBLE) END) IS NOT NULL
+        ORDER BY priceGap DESC
+        LIMIT 20
+    """
+    try:
+        _, rows = run_query(sql)
+        data = [clean_row(r) for r in rows]
+        return jsonify({"routes": data, "query": sql.strip()})
+    except Exception as e:
+        return jsonify({"error": str(e), "query": sql.strip()}), 500
+
+
+# ---------------------------------------------------------------------------
+# 5g. Flight Splicing Engine – Find cost-saving virtual itineraries
+#     GET /api/flight-splicing?origin=ATL&dest=SFO&maxLayover=4&minLayover=1
+# ---------------------------------------------------------------------------
+@app.route("/api/flight-splicing")
+def flight_splicing():
+    origin = request.args.get("origin", "").upper()
+    dest = request.args.get("dest", "").upper()
+    max_layover = int(request.args.get("maxLayover", 4))
+    min_layover = float(request.args.get("minLayover", 1.5))
+    limit = int(request.args.get("limit", 20))
+
+    if not origin or not dest:
+        return jsonify({"error": "origin and dest are required"}), 400
+
+    tbl = get_flight_table()
+
+    # Step 1: Find best direct flight price for baseline
+    direct_sql = f"""
+        SELECT ROUND(MIN(CAST(totalFare AS DOUBLE)), 2) AS bestDirect,
+               ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgDirect,
+               COUNT(*) AS directCount
+        FROM {tbl}
+        WHERE startingAirport = '{origin}' AND destinationAirport = '{dest}'
+    """
+
+    # Step 2: Find spliced itineraries via intermediate airports
+    # Leg 1: origin → hub, Leg 2: hub → dest (same flightDate)
+    splice_sql = f"""
+        SELECT
+            leg1.startingAirport AS origin,
+            leg1.destinationAirport AS hub,
+            leg2.destinationAirport AS dest,
+            leg1.flightDate,
+            leg1.segmentsAirlineName AS airline1,
+            leg2.segmentsAirlineName AS airline2,
+            ROUND(CAST(leg1.totalFare AS DOUBLE), 2) AS fare1,
+            ROUND(CAST(leg2.totalFare AS DOUBLE), 2) AS fare2,
+            ROUND(CAST(leg1.totalFare AS DOUBLE) + CAST(leg2.totalFare AS DOUBLE), 2) AS combinedFare,
+            leg1.segmentsArrivalTimeRaw AS leg1Arrival,
+            leg2.segmentsDepartureTimeRaw AS leg2Departure,
+            ROUND(
+                (CAST(leg2.segmentsDepartureTimeEpochSeconds AS BIGINT) -
+                 CAST(leg1.segmentsArrivalTimeEpochSeconds AS BIGINT)) / 3600.0
+            , 1) AS layoverHours
+        FROM {tbl} leg1
+        JOIN {tbl} leg2
+            ON leg1.destinationAirport = leg2.startingAirport
+            AND leg1.flightDate = leg2.flightDate
+        WHERE leg1.startingAirport = '{origin}'
+          AND leg2.destinationAirport = '{dest}'
+          AND leg1.isNonStop = 'True'
+          AND leg2.isNonStop = 'True'
+          AND (CAST(leg2.segmentsDepartureTimeEpochSeconds AS BIGINT) -
+               CAST(leg1.segmentsArrivalTimeEpochSeconds AS BIGINT)) / 3600.0
+              BETWEEN {min_layover} AND {max_layover}
+        ORDER BY combinedFare ASC
+        LIMIT {limit}
+    """
+
+    try:
+        # Get direct flight baseline
+        _, direct_rows = run_query(direct_sql)
+        direct = clean_row(direct_rows[0]) if direct_rows else {}
+
+        # Get spliced itineraries
+        _, splice_rows = run_query(splice_sql)
+        itineraries = [clean_row(r) for r in splice_rows]
+
+        # Calculate savings for each itinerary
+        best_direct = direct.get("bestDirect") or direct.get("bestdirect")
+        if best_direct:
+            for it in itineraries:
+                combined = it.get("combinedFare") or it.get("combinedfare") or 0
+                it["savings"] = round(float(best_direct) - float(combined), 2)
+                it["savingsPercent"] = round((float(best_direct) - float(combined)) / float(best_direct) * 100, 1) if float(best_direct) > 0 else 0
+
+        return jsonify({
+            "origin": origin, "dest": dest,
+            "direct": direct,
+            "itineraries": itineraries,
+            "directQuery": direct_sql.strip(),
+            "spliceQuery": splice_sql.strip()
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# 5h. Where to Fly (Budget) – includes distance for scatter chart
+#     GET /api/where-to-fly-budget?origin=ATL&budget=500
+# ---------------------------------------------------------------------------
+@app.route("/api/where-to-fly-budget")
+def where_to_fly_budget():
+    origin = request.args.get("origin", "").upper()
+    budget = request.args.get("budget", "")
+    nonstop = request.args.get("nonstop", "false").lower() == "true"
+    limit = int(request.args.get("limit", 50))
+
+    if not origin:
+        return jsonify({"error": "origin is required"}), 400
+
+    nonstop_filter = "AND isNonStop = 'True'" if nonstop else ""
+    budget_filter = f"HAVING MIN(CAST(totalFare AS DOUBLE)) <= {float(budget)}" if budget else ""
+
+    tbl = get_flight_table()
+    sql = f"""
+        SELECT destinationAirport,
+               ROUND(MIN(CAST(totalFare AS DOUBLE)), 2)  AS minFare,
+               ROUND(AVG(CAST(totalFare AS DOUBLE)), 2)  AS avgFare,
+               ROUND(AVG(CAST(totalTravelDistance AS DOUBLE)), 0) AS avgDistance,
+               COUNT(*) AS flightCount
+        FROM {tbl}
+        WHERE startingAirport = '{origin}'
+          AND totalTravelDistance IS NOT NULL
+          AND CAST(totalTravelDistance AS DOUBLE) > 0
+          {nonstop_filter}
+        GROUP BY destinationAirport
+        {budget_filter}
+        ORDER BY minFare ASC
+        LIMIT {limit}
+    """
+
+    try:
+        _, rows = run_query(sql)
+        destinations = [clean_row(r) for r in rows]
+        return jsonify({"origin": origin, "destinations": destinations, "query": sql.strip()})
+    except Exception as e:
+        return jsonify({"error": str(e), "query": sql.strip()}), 500
+
+
+# ---------------------------------------------------------------------------
+# 6. Airport Search
 #    GET /api/airports?q=Tokyo
 # ---------------------------------------------------------------------------
 @app.route("/api/airports")
