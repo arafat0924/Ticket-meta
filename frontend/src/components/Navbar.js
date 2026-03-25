@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Search, MapPin, Calendar, BarChart3, MessageSquare, Building2, Plane, TrendingUp, Scissors, DollarSign } from 'lucide-react';
+import { Search, MessageSquare, Plane, TrendingUp, Scissors, FlaskConical } from 'lucide-react';
 import { healthCheck } from '../api';
 
 function Navbar() {
@@ -31,20 +31,8 @@ function Navbar() {
           <NavLink to="/flights" className={({ isActive }) => `tl-nav-link ${isActive ? 'active' : ''}`}>
             <Search size={14} /> Flights
           </NavLink>
-          <NavLink to="/where-to-fly" className={({ isActive }) => `tl-nav-link ${isActive ? 'active' : ''}`}>
-            <MapPin size={14} /> Where to Fly
-          </NavLink>
-          <NavLink to="/when-to-fly" className={({ isActive }) => `tl-nav-link ${isActive ? 'active' : ''}`}>
-            <Calendar size={14} /> When to Fly
-          </NavLink>
-          <NavLink to="/airline-comparison" className={({ isActive }) => `tl-nav-link ${isActive ? 'active' : ''}`}>
-            <BarChart3 size={14} /> Airlines
-          </NavLink>
           <NavLink to="/analytics" className={({ isActive }) => `tl-nav-link ${isActive ? 'active' : ''}`}>
             <TrendingUp size={14} /> Analytics
-          </NavLink>
-          <NavLink to="/budget-explorer" className={({ isActive }) => `tl-nav-link ${isActive ? 'active' : ''}`}>
-            <DollarSign size={14} /> Budget
           </NavLink>
           <NavLink to="/flight-splicing" className={({ isActive }) => `tl-nav-link ${isActive ? 'active' : ''}`}>
             <Scissors size={14} /> Splicing
@@ -52,8 +40,8 @@ function Navbar() {
           <NavLink to="/chatbot" className={({ isActive }) => `tl-nav-link ${isActive ? 'active' : ''}`}>
             <MessageSquare size={14} /> AI Chat
           </NavLink>
-          <NavLink to="/airports" className={({ isActive }) => `tl-nav-link ${isActive ? 'active' : ''}`}>
-            <Building2 size={14} /> Airports
+          <NavLink to="/enrichment" className={({ isActive }) => `tl-nav-link ${isActive ? 'active' : ''}`}>
+            <FlaskConical size={14} /> Enrichment
           </NavLink>
         </div>
         <div className={`health-dot ${health}`} title={`Backend: ${health}`} />
