@@ -50,6 +50,9 @@ def cached_query(cache_key, query_fn):
 # ---------------------------------------------------------------------------
 _spark = None
 
+# MySQL JDBC driver path (required for Hive Metastore connection)
+MYSQL_DRIVER = "/opt/apache-hive-4.0.1/lib/mysql-connector-j-8.4.0.jar"
+
 def get_spark():
     """Get or create a SparkSession with Hive support."""
     global _spark
@@ -64,6 +67,9 @@ def get_spark():
             .config("spark.executor.memory", "2g")
             .config("spark.executor.instances", "2")
             .config("spark.yarn.queue", "default")
+            .config("spark.driver.extraClassPath", MYSQL_DRIVER)
+            .config("spark.executor.extraClassPath", MYSQL_DRIVER)
+            .config("spark.sql.hive.metastore.jars", "builtin")
             .enableHiveSupport()
             .getOrCreate()
         )
@@ -878,6 +884,366 @@ def chatbot():
         return jsonify({"answer": f"⏱ {str(te)}", "sql": sql, "results": None})
     except Exception as e:
         return jsonify({"error": str(e), "sql": locals().get("sql", "")}), 500
+
+
+# ===========================================================================
+# DATA ENRICHMENT ENDPOINTS (Requirement 2: External Datasets)
+# ===========================================================================
+import requests as ext_requests
+import csv as csv_mod
+import io as io_mod
+
+AIRPORT_CITIES = {
+    "ATL":"Atlanta,GA","LAX":"Los Angeles,CA","ORD":"Chicago,IL","DFW":"Dallas,TX",
+    "DEN":"Denver,CO","JFK":"New York,NY","SFO":"San Francisco,CA","SEA":"Seattle,WA",
+    "LAS":"Las Vegas,NV","MCO":"Orlando,FL","EWR":"Newark,NJ","MIA":"Miami,FL",
+    "CLT":"Charlotte,NC","PHX":"Phoenix,AZ","IAH":"Houston,TX","BOS":"Boston,MA",
+    "MSP":"Minneapolis,MN","DTW":"Detroit,MI","PHL":"Philadelphia,PA","LGA":"New York,NY",
+    "FLL":"Fort Lauderdale,FL","BWI":"Baltimore,MD","DCA":"Washington,DC","SLC":"Salt Lake City,UT",
+    "IAD":"Washington,DC","SAN":"San Diego,CA","TPA":"Tampa,FL","BNA":"Nashville,TN",
+    "AUS":"Austin,TX","PDX":"Portland,OR","STL":"St. Louis,MO","OAK":"Oakland,CA",
+    "RDU":"Raleigh,NC","PIT":"Pittsburgh,PA",
+}
+AIRPORT_COORDS = {
+    "ATL":(33.64,-84.43),"LAX":(33.94,-118.41),"ORD":(41.97,-87.91),"DFW":(32.90,-97.04),
+    "DEN":(39.86,-104.67),"JFK":(40.64,-73.78),"SFO":(37.62,-122.38),"SEA":(47.45,-122.31),
+    "LAS":(36.08,-115.15),"MCO":(28.43,-81.31),"EWR":(40.69,-74.17),"MIA":(25.80,-80.29),
+    "CLT":(35.21,-80.94),"PHX":(33.44,-112.01),"IAH":(29.99,-95.34),"BOS":(42.37,-71.01),
+    "MSP":(44.88,-93.22),"DTW":(42.21,-83.35),"PHL":(39.87,-75.24),"LGA":(40.78,-73.87),
+    "FLL":(26.07,-80.15),"BWI":(39.18,-76.67),"DCA":(38.85,-77.04),"SLC":(40.79,-111.98),
+}
+METRO_INCOME = {
+    "SFO":112449,"OAK":112449,"SJC":117474,"SEA":94027,"BOS":89212,"DCA":105659,
+    "IAD":105659,"JFK":75910,"LGA":75910,"EWR":85245,"LAX":73052,"SAN":83985,
+    "DEN":84843,"MSP":84313,"ATL":71193,"AUS":80954,"PDX":78673,"BNA":67571,
+    "CLT":64017,"ORD":78304,"DFW":72265,"IAH":69193,"PHX":65210,"PHL":68740,
+    "DTW":61003,"MIA":51347,"FLL":58905,"MCO":55021,"TPA":54599,"LAS":58377,
+    "SLC":75626,"BWI":82253,"STL":57920,"PIT":61344,"RDU":72576,
+}
+RAIL_PAIRS = {
+    ("BOS","JFK"),("BOS","LGA"),("BOS","EWR"),("BOS","PHL"),("BOS","BWI"),("BOS","DCA"),
+    ("JFK","PHL"),("JFK","BWI"),("JFK","DCA"),("JFK","EWR"),("JFK","BOS"),
+    ("LGA","PHL"),("LGA","BWI"),("LGA","DCA"),("LGA","EWR"),("LGA","BOS"),
+    ("EWR","PHL"),("EWR","BWI"),("EWR","DCA"),("EWR","BOS"),("EWR","JFK"),("EWR","LGA"),
+    ("PHL","BWI"),("PHL","DCA"),("PHL","JFK"),("PHL","LGA"),("PHL","EWR"),("PHL","BOS"),
+    ("BWI","DCA"),("BWI","PHL"),("BWI","JFK"),("BWI","LGA"),("BWI","EWR"),("BWI","BOS"),
+    ("DCA","BWI"),("DCA","PHL"),("DCA","JFK"),("DCA","LGA"),("DCA","EWR"),("DCA","BOS"),
+    ("IAD","BWI"),("IAD","PHL"),("IAD","JFK"),("IAD","LGA"),("IAD","EWR"),("IAD","BOS"),
+}
+
+# ---------------------------------------------------------------------------
+# I. Severe Weather & Capacity Contraction Premium
+# ---------------------------------------------------------------------------
+@app.route("/api/enrichment/weather")
+def enrichment_weather():
+    airport = request.args.get("airport", "ATL").upper()
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+            SELECT flightDate,
+                   ROUND(AVG(CAST(totalFare AS DOUBLE)),2) AS avgFare,
+                   COUNT(*) AS flightCount,
+                   SUM(CASE WHEN isNonStop='True' THEN 1 ELSE 0 END) AS nonstopCount,
+                   SUM(CASE WHEN isNonStop='False' THEN 1 ELSE 0 END) AS connectingCount,
+                   ROUND(AVG(CAST(seatsRemaining AS INT)),1) AS avgSeats,
+                   ROUND(AVG(DATEDIFF(flightDate,searchDate)),1) AS avgLeadDays
+            FROM {tbl}
+            WHERE startingAirport='{airport}' AND flightDate IS NOT NULL
+            GROUP BY flightDate ORDER BY flightDate
+        """
+        _, rows = run_query(sql)
+        return {"airport": airport, "dailyData": [clean_row(r) for r in rows], "query": sql.strip()}
+    try:
+        result = cached_query(f"weather_{airport}", _query)
+        # Fetch NOAA weather
+        weather = {}
+        coords = AIRPORT_COORDS.get(airport)
+        if coords:
+            try:
+                pts = ext_requests.get(f"https://api.weather.gov/points/{coords[0]},{coords[1]}",
+                                       headers={"User-Agent":"SkyQuery/1.0"}, timeout=10).json()
+                station_url = pts.get("properties",{}).get("observationStations","")
+                if station_url:
+                    stations = ext_requests.get(station_url, headers={"User-Agent":"SkyQuery/1.0"}, timeout=10).json()
+                    station_id = stations.get("features",[{}])[0].get("properties",{}).get("stationIdentifier","")
+                    if station_id:
+                        obs = ext_requests.get(f"https://api.weather.gov/stations/{station_id}/observations?limit=200",
+                                               headers={"User-Agent":"SkyQuery/1.0"}, timeout=15).json()
+                        for f in obs.get("features",[]):
+                            p = f.get("properties",{})
+                            ts = (p.get("timestamp") or "")[:10]
+                            if ts:
+                                weather[ts] = {
+                                    "temp": p.get("temperature",{}).get("value"),
+                                    "wind": p.get("windSpeed",{}).get("value"),
+                                    "precip": p.get("precipitationLastHour",{}).get("value"),
+                                    "desc": p.get("textDescription",""),
+                                }
+            except Exception as we:
+                weather = {"error": str(we)}
+        result["weather"] = weather
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ---------------------------------------------------------------------------
+# II. Geographical Wealth & Purchasing Power Discrimination
+# ---------------------------------------------------------------------------
+@app.route("/api/enrichment/wealth")
+def enrichment_wealth():
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+            SELECT startingAirport,
+                   ROUND(AVG(CAST(totalFare AS DOUBLE)/NULLIF(CAST(totalTravelDistance AS DOUBLE),0)),4) AS avgPricePerMile,
+                   ROUND(AVG(CAST(totalFare AS DOUBLE)),2) AS avgFare,
+                   ROUND(AVG(CAST(totalTravelDistance AS DOUBLE)),0) AS avgDistance,
+                   COUNT(*) AS flightCount
+            FROM {tbl}
+            WHERE totalTravelDistance IS NOT NULL AND CAST(totalTravelDistance AS DOUBLE) > 50
+              AND totalFare IS NOT NULL AND CAST(totalFare AS DOUBLE) > 0
+            GROUP BY startingAirport
+            HAVING COUNT(*) > 100
+            ORDER BY avgPricePerMile DESC
+        """
+        _, rows = run_query(sql)
+        data = [clean_row(r) for r in rows]
+        # Enrich with income data
+        for d in data:
+            ap = d.get("startingAirport","")
+            d["medianIncome"] = METRO_INCOME.get(ap)
+            d["city"] = AIRPORT_CITIES.get(ap,"Unknown")
+            if d["medianIncome"] and d["medianIncome"] >= 90000:
+                d["incomeTier"] = "High"
+            elif d["medianIncome"] and d["medianIncome"] >= 70000:
+                d["incomeTier"] = "Medium"
+            else:
+                d["incomeTier"] = "Low"
+        return {"airports": data, "query": sql.strip()}
+    try:
+        result = cached_query("wealth_analysis", _query)
+        # Summary by tier
+        tiers = {}
+        for a in result.get("airports", []):
+            tier = a.get("incomeTier", "Unknown")
+            if tier not in tiers:
+                tiers[tier] = {"count": 0, "totalPPM": 0, "totalFare": 0}
+            tiers[tier]["count"] += 1
+            tiers[tier]["totalPPM"] += a.get("avgPricePerMile", 0) or 0
+            tiers[tier]["totalFare"] += a.get("avgFare", 0) or 0
+        summary = []
+        for tier, v in tiers.items():
+            if v["count"] > 0:
+                summary.append({
+                    "tier": tier, "airportCount": v["count"],
+                    "avgPricePerMile": round(v["totalPPM"] / v["count"], 4),
+                    "avgFare": round(v["totalFare"] / v["count"], 2),
+                })
+        result["tierSummary"] = sorted(summary, key=lambda x: x["avgPricePerMile"], reverse=True)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ---------------------------------------------------------------------------
+# III. Brand Markup & Service Quality Correlation
+# ---------------------------------------------------------------------------
+@app.route("/api/enrichment/brand")
+def enrichment_brand():
+    def _query():
+        tbl = get_flight_table()
+        # Top 5 competitive routes
+        routes_sql = f"""
+            SELECT startingAirport, destinationAirport,
+                   COUNT(DISTINCT segmentsAirlineName) AS airlineCount,
+                   COUNT(*) AS flightCount
+            FROM {tbl}
+            WHERE segmentsAirlineName IS NOT NULL AND segmentsAirlineName != ''
+            GROUP BY startingAirport, destinationAirport
+            HAVING COUNT(DISTINCT segmentsAirlineName) >= 5
+            ORDER BY flightCount DESC LIMIT 5
+        """
+        _, route_rows = run_query(routes_sql)
+        routes = [clean_row(r) for r in route_rows]
+
+        # For each route, get airline pricing
+        all_comparisons = []
+        for route in routes[:5]:
+            o, d = route["startingAirport"], route["destinationAirport"]
+            comp_sql = f"""
+                SELECT segmentsAirlineName AS airline,
+                       ROUND(AVG(CAST(totalFare AS DOUBLE)),2) AS avgFare,
+                       ROUND(MIN(CAST(totalFare AS DOUBLE)),2) AS minFare,
+                       ROUND(MAX(CAST(totalFare AS DOUBLE)),2) AS maxFare,
+                       COUNT(*) AS flightCount,
+                       ROUND(AVG(CASE WHEN isNonStop='True' THEN 1.0 ELSE 0.0 END)*100,1) AS nonstopPct
+                FROM {tbl}
+                WHERE startingAirport='{o}' AND destinationAirport='{d}'
+                  AND segmentsAirlineName IS NOT NULL AND segmentsAirlineName != ''
+                GROUP BY segmentsAirlineName ORDER BY avgFare DESC
+            """
+            _, comp_rows = run_query(comp_sql)
+            all_comparisons.append({
+                "route": f"{o}→{d}", "origin": o, "dest": d,
+                "airlines": [clean_row(r) for r in comp_rows]
+            })
+        return {"routes": routes, "comparisons": all_comparisons, "routeQuery": routes_sql.strip()}
+    try:
+        result = cached_query("brand_analysis", _query)
+        # Load delay CSV if available
+        delay_data = {}
+        try:
+            csv_path = os.path.join(os.path.dirname(__file__), "Airline_Delay_Cause.csv")
+            if not os.path.exists(csv_path):
+                csv_path = "/home/azmine/flight_api/Airline_Delay_Cause.csv"
+            with open(csv_path, "r") as f:
+                reader = csv_mod.DictReader(f)
+                for row in reader:
+                    carrier = row.get("carrier_name","").strip()
+                    if carrier:
+                        if carrier not in delay_data:
+                            delay_data[carrier] = {"total_delays":0, "total_flights":0, "entries":0}
+                        try:
+                            delay_data[carrier]["total_delays"] += float(row.get("arr_del15",0) or 0)
+                            delay_data[carrier]["total_flights"] += float(row.get("arr_flights",0) or 0)
+                            delay_data[carrier]["entries"] += 1
+                        except: pass
+            for k,v in delay_data.items():
+                if v["total_flights"] > 0:
+                    v["onTimePct"] = round((1 - v["total_delays"]/v["total_flights"])*100, 1)
+                else:
+                    v["onTimePct"] = None
+        except Exception as ce:
+            delay_data = {"_error": str(ce)}
+        result["delayData"] = delay_data
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ---------------------------------------------------------------------------
+# IV. Intermodal Competition: Rail Price Ceiling Effect
+# ---------------------------------------------------------------------------
+@app.route("/api/enrichment/rail")
+def enrichment_rail():
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+            SELECT startingAirport, destinationAirport,
+                   ROUND(AVG(CAST(totalFare AS DOUBLE)),2) AS avgFare,
+                   ROUND(AVG(CAST(totalTravelDistance AS DOUBLE)),0) AS avgDistance,
+                   ROUND(AVG(CAST(totalFare AS DOUBLE)/NULLIF(CAST(totalTravelDistance AS DOUBLE),0)),4) AS pricePerMile,
+                   COUNT(*) AS flightCount
+            FROM {tbl}
+            WHERE CAST(totalTravelDistance AS DOUBLE) < 500
+              AND CAST(totalTravelDistance AS DOUBLE) > 50
+              AND totalFare IS NOT NULL AND CAST(totalFare AS DOUBLE) > 0
+            GROUP BY startingAirport, destinationAirport
+            HAVING COUNT(*) > 20
+            ORDER BY pricePerMile DESC
+        """
+        _, rows = run_query(sql)
+        data = [clean_row(r) for r in rows]
+        rail_covered, rail_vacuum = [], []
+        for d in data:
+            pair = (d["startingAirport"], d["destinationAirport"])
+            d["hasRail"] = pair in RAIL_PAIRS or (pair[1],pair[0]) in RAIL_PAIRS
+            if d["hasRail"]:
+                rail_covered.append(d)
+            else:
+                rail_vacuum.append(d)
+        # Summary
+        rc_ppm = [r["pricePerMile"] for r in rail_covered if r["pricePerMile"]]
+        rv_ppm = [r["pricePerMile"] for r in rail_vacuum if r["pricePerMile"]]
+        summary = {
+            "railCovered": {"count": len(rail_covered),
+                           "avgPricePerMile": round(sum(rc_ppm)/len(rc_ppm),4) if rc_ppm else 0},
+            "railVacuum": {"count": len(rail_vacuum),
+                          "avgPricePerMile": round(sum(rv_ppm)/len(rv_ppm),4) if rv_ppm else 0},
+        }
+        if summary["railVacuum"]["avgPricePerMile"] > 0:
+            summary["priceCeilingEffect"] = round(
+                (1 - summary["railCovered"]["avgPricePerMile"]/summary["railVacuum"]["avgPricePerMile"])*100, 1)
+        return {"routes": data, "railCovered": rail_covered, "railVacuum": rail_vacuum,
+                "summary": summary, "query": sql.strip()}
+    try:
+        result = cached_query("rail_analysis", _query)
+        # Fetch Amtrak stations
+        try:
+            amtrak = ext_requests.get("https://amtrak-api.marcmap.app/get-stations", timeout=15).json()
+            result["amtrakStations"] = len(amtrak) if isinstance(amtrak, list) else 0
+            result["amtrakSample"] = amtrak[:20] if isinstance(amtrak, list) else []
+        except Exception as ae:
+            result["amtrakStations"] = 0
+            result["amtrakError"] = str(ae)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ---------------------------------------------------------------------------
+# V. Ghost Fare & Price Manipulation Monitoring
+# ---------------------------------------------------------------------------
+@app.route("/api/enrichment/ghost")
+def enrichment_ghost():
+    def _query():
+        tbl = get_flight_table()
+        # Find price anomalies: same route, same flightDate, wildly different fares
+        sql = f"""
+            SELECT startingAirport, destinationAirport, flightDate,
+                   ROUND(MIN(CAST(totalFare AS DOUBLE)),2) AS minFare,
+                   ROUND(MAX(CAST(totalFare AS DOUBLE)),2) AS maxFare,
+                   ROUND(AVG(CAST(totalFare AS DOUBLE)),2) AS avgFare,
+                   ROUND(MAX(CAST(totalFare AS DOUBLE))/NULLIF(MIN(CAST(totalFare AS DOUBLE)),0),2) AS priceRatio,
+                   COUNT(DISTINCT searchDate) AS searchDates,
+                   COUNT(*) AS listings
+            FROM {tbl}
+            WHERE totalFare IS NOT NULL AND CAST(totalFare AS DOUBLE) > 0
+            GROUP BY startingAirport, destinationAirport, flightDate
+            HAVING MAX(CAST(totalFare AS DOUBLE))/NULLIF(MIN(CAST(totalFare AS DOUBLE)),0) > 3
+               AND COUNT(*) > 5
+            ORDER BY priceRatio DESC
+            LIMIT 50
+        """
+        _, rows = run_query(sql)
+        data = [clean_row(r) for r in rows]
+        # Sawtooth detection: price jumps within short search windows
+        saw_sql = f"""
+            SELECT startingAirport, destinationAirport, flightDate, searchDate,
+                   ROUND(CAST(totalFare AS DOUBLE),2) AS fare,
+                   segmentsAirlineName AS airline
+            FROM {tbl}
+            WHERE startingAirport='ATL' AND destinationAirport='LAX'
+              AND totalFare IS NOT NULL AND CAST(totalFare AS DOUBLE) > 0
+            ORDER BY flightDate, searchDate
+            LIMIT 200
+        """
+        _, saw_rows = run_query(saw_sql)
+        sawtooth = [clean_row(r) for r in saw_rows]
+        return {"anomalies": data, "sawtooth": sawtooth, "query": sql.strip(), "sawtoothQuery": saw_sql.strip()}
+    try:
+        result = cached_query("ghost_analysis", _query)
+        # Fetch Reddit complaints
+        try:
+            reddit = ext_requests.get(
+                "https://www.reddit.com/r/travel/search.json?q=ghost%20fare%20OR%20price%20bait%20OR%20fake%20price&limit=50&sort=relevance",
+                headers={"User-Agent": "SkyQuery/1.0"}, timeout=15
+            ).json()
+            posts = []
+            for child in reddit.get("data",{}).get("children",[]):
+                d = child.get("data",{})
+                posts.append({
+                    "title": d.get("title",""),
+                    "score": d.get("score",0),
+                    "comments": d.get("num_comments",0),
+                    "url": f"https://reddit.com{d.get('permalink','')}",
+                    "created": d.get("created_utc",0),
+                    "subreddit": d.get("subreddit",""),
+                })
+            result["redditPosts"] = posts
+        except Exception as re_err:
+            result["redditPosts"] = []
+            result["redditError"] = str(re_err)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # ---------------------------------------------------------------------------
