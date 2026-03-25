@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useTransition, useOptimistic, useCallback } from 'react';
-import { Send, Bot, User } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { chatbot } from '../api';
 
 function Chatbot() {
@@ -39,16 +39,8 @@ function Chatbot() {
       // Add user message to actual state
       setMessages(prev => [...prev, { role: 'user', text: question }]);
 
-      // Build conversation history (last 10 messages) for context
-      const history = [...messages, { role: 'user', text: question }]
-        .slice(-10)
-        .map(m => ({
-          role: m.role === 'bot' ? 'assistant' : 'user',
-          content: m.text + (m.sql ? `\n[SQL: ${m.sql}]` : '')
-        }));
-
       try {
-        const res = await chatbot(question, history);
+        const res = await chatbot(question);
         const data = res.data;
         setMessages(prev => [
           ...prev,
@@ -127,8 +119,8 @@ function Chatbot() {
       <title>AI Flight Assistant — SkyQuery</title>
 
       <div className="page-hero">
-        <h1><Bot size={32} style={{ display: 'inline', verticalAlign: 'middle' }} /> AI Flight Assistant</h1>
-        <p>Ask questions in natural language — powered by DeepSeek AI + Hive</p>
+        <h1>🤖 AI Flight Assistant</h1>
+        <p>Ask questions in natural language — powered by OpenAI + Hive</p>
       </div>
 
       <div className="chat-container">
@@ -145,7 +137,7 @@ function Chatbot() {
         <div className="chat-messages">
           {optimisticMessages.map((msg, i) => (
             <div key={i} className={`chat-message ${msg.role}`}>
-              <div className="chat-avatar">{msg.role === 'bot' ? <Bot size={18} /> : <User size={18} />}</div>
+              <div className="chat-avatar">{msg.role === 'bot' ? '🤖' : '👤'}</div>
               <div>
                 <div className="chat-bubble">
                   {msg.text}
@@ -157,7 +149,7 @@ function Chatbot() {
           ))}
           {isPending && (
             <div className="chat-message bot">
-              <div className="chat-avatar"><Bot size={18} /></div>
+              <div className="chat-avatar">🤖</div>
               <div className="chat-bubble">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div className="spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />

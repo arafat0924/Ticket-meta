@@ -92,7 +92,7 @@ export async function airlineComparison(params) {
   }
 }
 export const searchAirports = (params) => requestWithFallback({ method: 'get', url: '/airports', params });
-export const chatbot = (question, history) => requestWithFallback({ method: 'post', url: '/chatbot', data: { question, history } });
+export const chatbot = (question) => requestWithFallback({ method: 'post', url: '/chatbot', data: { question } });
 export const healthCheck = () => requestWithFallback({ method: 'get', url: '/health' });
 
 export default api;

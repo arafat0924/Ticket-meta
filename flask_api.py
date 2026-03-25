@@ -322,11 +322,13 @@ def search_flights():
             LIMIT {limit}
         """
     else:
-        # Fast mode: avoid global sorting on huge datasets to keep UI responsive.
+        # Fast mode: Pre-sample to prevent Out-Of-Memory crashes on 80-million row raw datasets
         sql = f"""
             SELECT {select_cols}
-            FROM {tbl}
-            WHERE {where}
+            FROM (
+                SELECT * FROM {tbl} WHERE {where} LIMIT 500
+            ) tmp
+            ORDER BY {order}
             LIMIT {limit}
         """
 
