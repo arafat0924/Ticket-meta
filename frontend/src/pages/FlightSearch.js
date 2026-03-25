@@ -1,6 +1,46 @@
-import React, { useState, useId, useCallback } from 'react';
-import { Search, Plane, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useTransition, useId, useCallback, useMemo } from 'react';
+import { Search, Plane, ChevronDown, ChevronUp, MoreHorizontal, DollarSign, Star, CheckCircle, XCircle, Armchair, Eye } from 'lucide-react';
 import { searchFlights } from '../api';
+
+// Custom Dropdown Component
+function CustomSelect({ label, value, onChange, options }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = React.useRef(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setIsOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selected = options.find(o => o.value === value);
+
+  return (
+    <div className="custom-select" ref={ref}>
+      {label && <label className="custom-select-label">{label}</label>}
+      <div className={`custom-select-trigger ${isOpen ? 'open' : ''}`} onClick={() => setIsOpen(!isOpen)}>
+        <span>{selected?.label || value}</span>
+        <ChevronDown size={14} className={`custom-select-arrow ${isOpen ? 'rotated' : ''}`} />
+      </div>
+      {isOpen && (
+        <div className="custom-select-dropdown">
+          {options.map((opt, i) => (
+            <div
+              key={i}
+              className={`custom-select-option ${opt.value === value ? 'active' : ''}`}
+              onClick={() => { onChange(opt.value); setIsOpen(false); }}
+            >
+              {opt.label}
+              {opt.value === value && <span className="custom-select-check">✓</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function FlightSearch() {
   const [origin, setOrigin] = useState('');
@@ -17,7 +57,7 @@ function FlightSearch() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [openMenu, setOpenMenu] = useState(null);
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   const originId = useId();
   const destId = useId();
@@ -32,18 +72,17 @@ function FlightSearch() {
     setFlights([]);
     setSearched(true);
     setOpenMenu(null);
-    setIsLoading(true);
 
-    try {
-      const res = await searchFlights({ origin, dest, nonstop, sort, limit, date, allowSlow: 0 });
-      setFlights(res.data.flights || []);
-      setQuery(res.data.query || '');
-    } catch (err) {
-      setError(err.response?.data?.error || err.message);
-      setQuery(err.response?.data?.query || '');
-    } finally {
-      setIsLoading(false);
-    }
+    startTransition(async () => {
+      try {
+        const res = await searchFlights({ origin, dest, nonstop, sort, limit, date });
+        setFlights(res.data.flights || []);
+        setQuery(res.data.query || '');
+      } catch (err) {
+        setError(err.response?.data?.error || err.message);
+        setQuery(err.response?.data?.query || '');
+      }
+    });
   }, [origin, dest, nonstop, sort, limit, date]);
 
   const formatTime = (raw) => {
@@ -96,7 +135,7 @@ function FlightSearch() {
       <title>Search Flights — SkyQuery</title>
 
       <div className="page-hero">
-        <h1>✈ Search Flights</h1>
+        <h1><Plane size={30} style={{ display: 'inline', verticalAlign: 'middle' }} /> Search Flights</h1>
         <p>Search through 80M+ flight itineraries powered by Hive</p>
       </div>
 
@@ -117,17 +156,19 @@ function FlightSearch() {
               <label htmlFor={dateId}>Date (optional)</label>
               <input id={dateId} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
-            <div className="input-group">
-              <label htmlFor={limitId}>Limit</label>
-              <select id={limitId} value={limit} onChange={(e) => setLimit(Number(e.target.value))}>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-            </div>
-            <button className="btn-primary" type="submit" disabled={isLoading || !origin || !dest}>
+            <CustomSelect
+              label="Limit"
+              value={limit}
+              onChange={(v) => setLimit(v)}
+              options={[
+                { value: 10, label: '10 results' },
+                { value: 20, label: '20 results' },
+                { value: 50, label: '50 results' },
+              ]}
+            />
+            <button className="btn-primary" type="submit" disabled={isPending || !origin || !dest}>
               <Search size={18} />
-              {isLoading ? 'Searching...' : 'Search'}
+              {isPending ? 'Searching...' : 'Search'}
             </button>
           </div>
           <div className="checkbox-group">
@@ -139,7 +180,7 @@ function FlightSearch() {
 
       {error && <div className="error-banner">⚠ {error}</div>}
 
-      {isLoading && (
+      {isPending && (
         <div className="loading-container">
           <div className="spinner" />
           <div className="loading-text">
@@ -149,7 +190,7 @@ function FlightSearch() {
         </div>
       )}
 
-      {!isLoading && searched && flights.length > 0 && (
+      {!isPending && searched && flights.length > 0 && (
         <>
           {/* Filter bar */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -160,25 +201,16 @@ function FlightSearch() {
                 </button>
               ))}
             </div>
-            <div style={{ position: 'relative' }}>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                style={{
-                  background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: 8,
-                  color: '#888', padding: '8px 32px 8px 14px', fontSize: 13, fontWeight: 600,
-                  fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
-                  appearance: 'none', WebkitAppearance: 'none',
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center'
-                }}
-              >
-                <option value="All">Show: All</option>
-                <option value="Nonstop">Nonstop</option>
-                <option value="Connecting">Connecting</option>
-                <option value="Few Left">Few Left</option>
-              </select>
-            </div>
+            <CustomSelect
+              value={statusFilter}
+              onChange={(v) => setStatusFilter(v)}
+              options={[
+                { value: 'All', label: 'Show: All' },
+                { value: 'Nonstop', label: 'Nonstop' },
+                { value: 'Connecting', label: 'Connecting' },
+                { value: 'Few Left', label: 'Few Left' },
+              ]}
+            />
           </div>
 
           <div className="result-count">
@@ -202,6 +234,7 @@ function FlightSearch() {
               </thead>
               <tbody>
                 {filteredFlights.map((f, i) => {
+                  const isNonstop = (f.isnonstop || f.isNonStop) === 'True';
                   const isRefundable = (f.isrefundable || f.isRefundable) === 'True';
                   const seats = Number(f.seatsremaining || f.seatsRemaining || 99);
                   const status = getFlightStatus(f);
@@ -216,7 +249,7 @@ function FlightSearch() {
                   const flightDate = f.flightdate || f.flightDate || '';
 
                   return (
-                    <tr key={`${i}-${f.legid || f.legId}`}>
+                    <tr key={`${i}-${f.legid || f.legId}`} className="flight-row-anim" style={{ animationDelay: `${i * 0.06}s` }}>
                       <td>
                         <div style={{ fontWeight: 600, color: '#c0c0c0', fontSize: 13 }}>{airline.split('||')[0]}</div>
                         <div style={{ fontSize: 11, color: '#444', marginTop: 2 }}>
@@ -259,10 +292,10 @@ function FlightSearch() {
                             boxShadow: '0 12px 40px rgba(0,0,0,0.6)', backdropFilter: 'blur(20px)'
                           }}>
                             {[
-                              { icon: '✈', label: 'View Details' },
-                              { icon: isRefundable ? '✅' : '❌', label: isRefundable ? 'Refundable' : 'Non-refundable' },
-                              { icon: '💺', label: `${seats} seats left` },
-                              { icon: '💰', label: `Base: $${Number(f.basefare || f.baseFare || 0).toFixed(0)}` },
+                              { icon: <Eye size={14} />, label: 'View Details' },
+                              { icon: isRefundable ? <CheckCircle size={14} /> : <XCircle size={14} />, label: isRefundable ? 'Refundable' : 'Non-refundable' },
+                              { icon: <Armchair size={14} />, label: `${seats} seats left` },
+                              { icon: <DollarSign size={14} />, label: `Base: $${Number(f.basefare || f.baseFare || 0).toFixed(0)}` },
                             ].map((item, idx) => (
                               <div key={idx} style={{
                                 padding: '10px 16px', fontSize: 13, color: '#888', cursor: 'pointer',
@@ -287,12 +320,12 @@ function FlightSearch() {
           {/* Stat Summary Cards — Midnight Voyager style */}
           <div className="stat-grid">
             <div className="stat-card">
-              <div className="stat-icon">✈</div>
+              <div className="stat-icon"><Plane size={18} /></div>
               <div className="stat-value">{filteredFlights.length}</div>
               <div className="stat-label">Flights found</div>
             </div>
             <div className="stat-card">
-              <div className="stat-icon">💰</div>
+              <div className="stat-icon"><DollarSign size={18} /></div>
               <div className="stat-value">
                 ${filteredFlights.length > 0
                   ? Math.min(...filteredFlights.map(f => Number(f.totalfare || f.totalFare || 0))).toFixed(0)
@@ -301,7 +334,7 @@ function FlightSearch() {
               <div className="stat-label">Lowest fare</div>
             </div>
             <div className="stat-card">
-              <div className="stat-icon">⭐</div>
+              <div className="stat-icon"><Star size={18} /></div>
               <div className="stat-value">
                 {filteredFlights.filter(f => (f.isnonstop || f.isNonStop) === 'True').length}
               </div>
@@ -311,15 +344,15 @@ function FlightSearch() {
         </>
       )}
 
-      {!isLoading && searched && flights.length === 0 && !error && (
+      {!isPending && searched && flights.length === 0 && !error && (
         <div className="empty-state">
-          <div className="icon">🔍</div>
+          <div className="icon"><Search size={48} /></div>
           <h3>No flights found</h3>
           <p>Try different airports or remove the nonstop filter</p>
         </div>
       )}
 
-      {!searched && !isLoading && (
+      {!searched && !isPending && (
         <div className="empty-state">
           <div className="icon"><Plane size={48} /></div>
           <h3>Search for flights</h3>

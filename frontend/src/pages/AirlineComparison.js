@@ -1,4 +1,4 @@
-﻿import React, { useState, useTransition, useId, useCallback } from 'react';
+import React, { useState, useTransition, useId, useCallback } from 'react';
 import { BarChart3, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { airlineComparison } from '../api';
@@ -58,10 +58,10 @@ function AirlineComparison() {
 
   return (
     <div className="page-container">
-      <title>Airline Comparison ÔÇö SkyQuery</title>
+      <title>Airline Comparison — SkyQuery</title>
 
       <div className="page-hero">
-        <h1>­ƒôè Airline Comparison</h1>
+        <h1>📊 Airline Comparison</h1>
         <p>Compare airline prices on any route</p>
       </div>
 
@@ -86,14 +86,14 @@ function AirlineComparison() {
         </div>
       </form>
 
-      {error && <div className="error-banner">ÔÜá {error}</div>}
+      {error && <div className="error-banner">⚠ {error}</div>}
 
       {isPending && (
         <div className="loading-container">
           <div className="spinner" />
           <div className="loading-text">
             Comparing airline prices...
-            <span className="warning">ÔÅ▒ Hive queries may take 2ÔÇô8 minutes on 80M rows</span>
+            <span className="warning">⏱ Hive queries may take 2–8 minutes on 80M rows</span>
           </div>
         </div>
       )}
@@ -101,7 +101,7 @@ function AirlineComparison() {
       {!isPending && airlines.length > 0 && (
         <>
           <div className="chart-container">
-            <div className="chart-title">Airline Price Comparison: {origin} ÔåÆ {dest}</div>
+            <div className="chart-title">Airline Price Comparison: {origin} → {dest}</div>
             <ResponsiveContainer width="100%" height={400}>
               <BarChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 60 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
@@ -142,7 +142,7 @@ function AirlineComparison() {
       )}
 
       {!isPending && searched && airlines.length === 0 && !error && (
-        <div className="empty-state"><div className="icon">­ƒöì</div><h3>No airline data found</h3><p>Try different airport codes</p></div>
+        <div className="empty-state"><div className="icon">🔍</div><h3>No airline data found</h3><p>Try different airport codes</p></div>
       )}
 
       {!searched && !isPending && (

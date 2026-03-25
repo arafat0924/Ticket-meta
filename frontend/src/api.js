@@ -1,98 +1,79 @@
 import axios from 'axios';
 
-const API_BASE = process.env.REACT_APP_API_BASE_URL;
+const API_BASE = 'http://192.168.56.101:5000/api';
 
-function normalizeBase(url) {
-  return (url || '').replace(/\/+$/, '');
-}
+const api = axios.create({
+  baseURL: API_BASE,
+  timeout: 300000, // 5 min timeout for Hive queries
+});
 
-function getFallbackBases(base) {
-  const normalized = normalizeBase(base);
-  if (!normalized) return [];
+export const searchFlights = (params) => api.get('/search-flights', { params });
+export const whereToFly = (params) => api.get('/where-to-fly', { params });
+export const whenToFly = (params) => api.get('/when-to-fly', { params });
+export const airlineComparison = (params) => api.get('/airline-comparison', { params });
+export const searchAirports = (params) => api.get('/airports', { params });
+export const healthCheck = () => api.get('/health');
 
-  const fallbacks = [];
-  if (normalized.endsWith('/api.now')) {
-    fallbacks.push(normalized.replace(/\/api\.now$/, '/api'));
-  } else if (normalized.endsWith('/api')) {
-    fallbacks.push(`${normalized}.now`);
-  }
+// Legacy non-streaming chatbot (fallback)
+export const chatbot = (question, history = []) => api.post('/chatbot', { question, history });
 
-  return fallbacks;
-}
+/**
+ * Streaming chatbot via SSE — calls onEvent for each server-sent chunk.
+ * Returns an AbortController so caller can cancel.
+ *
+ * Event types: status, sql, answer, error, done
+ */
+export function chatbotStream(question, history = [], onEvent) {
+  const controller = new AbortController();
 
-const PRIMARY_BASE = normalizeBase(API_BASE);
-const FALLBACK_BASES = getFallbackBases(PRIMARY_BASE);
+  fetch(`${API_BASE}/chatbot/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question, history }),
+    signal: controller.signal,
+  })
+    .then(async (response) => {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-function createClient(baseURL) {
-  return axios.create({
-    baseURL,
-    timeout: 900000, // increased to 15m for extremely slow Hive queries
-  });
-}
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
 
-const api = createClient(PRIMARY_BASE);
+        // Parse SSE lines
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // keep incomplete line in buffer
 
-async function requestWithFallback(config) {
-  const clients = [api, ...FALLBACK_BASES.map(createClient)];
-  let lastError;
-
-  for (const client of clients) {
-    try {
-      return await client.request(config);
-    } catch (err) {
-      lastError = err;
-      const status = err?.response?.status;
-      const isNetworkError = !err?.response;
-      if (status !== 404 && !isNetworkError) {
-        throw err;
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const event = JSON.parse(line.slice(6));
+              onEvent(event);
+            } catch {
+              // ignore parse errors on partial chunks
+            }
+          }
+        }
       }
-    }
-  }
 
-  throw lastError;
+      // Process any remaining buffer
+      if (buffer.startsWith('data: ')) {
+        try {
+          const event = JSON.parse(buffer.slice(6));
+          onEvent(event);
+        } catch { /* ignore */ }
+      }
+    })
+    .catch((err) => {
+      if (err.name !== 'AbortError') {
+        onEvent({ type: 'error', message: err.message });
+        onEvent({ type: 'done' });
+      }
+    });
+
+  return controller;
 }
-
-export const searchFlights = (params) => requestWithFallback({ method: 'get', url: '/search-flights', params });
-export const whereToFly = (params) => requestWithFallback({ method: 'get', url: '/where-to-fly', params });
-export async function whenToFly(params) {
-  try {
-    return await requestWithFallback({ method: 'get', url: '/when-to-fly', params });
-  } catch (err) {
-    const status = err?.response?.status;
-    const message = String(err?.response?.data?.error || '').toLowerCase();
-    const needsRawFallback = status === 503 && (message.includes('aggregate') || message.includes('schema mismatch'));
-    if (!needsRawFallback) throw err;
-
-    const retryParams = {
-      ...params,
-      allowRaw: 1,
-      // Reduced sample size to prevent timeouts on slow backends
-      rawSampleCap: params?.rawSampleCap || 10000, 
-    };
-    return requestWithFallback({ method: 'get', url: '/when-to-fly', params: retryParams });
-  }
-}
-
-export async function airlineComparison(params) {
-  try {
-    return await requestWithFallback({ method: 'get', url: '/airline-comparison', params });
-  } catch (err) {
-    const status = err?.response?.status;
-    const message = String(err?.response?.data?.error || '').toLowerCase();
-    const needsRawFallback = status === 503 && (message.includes('aggregate') || message.includes('schema mismatch'));
-    if (!needsRawFallback) throw err;
-
-    const retryParams = {
-      ...params,
-      allowRaw: 1,
-      // Reduced sample size to prevent timeouts on slow backends
-      rawSampleCap: params?.rawSampleCap || 10000,
-    };
-    return requestWithFallback({ method: 'get', url: '/airline-comparison', params: retryParams });
-  }
-}
-export const searchAirports = (params) => requestWithFallback({ method: 'get', url: '/airports', params });
-export const chatbot = (question) => requestWithFallback({ method: 'post', url: '/chatbot', data: { question } });
-export const healthCheck = () => requestWithFallback({ method: 'get', url: '/health' });
 
 export default api;

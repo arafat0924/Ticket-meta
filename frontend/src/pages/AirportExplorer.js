@@ -1,4 +1,4 @@
-﻿import React, { useState, useTransition, useId, useCallback } from 'react';
+import React, { useState, useTransition, useId, useCallback } from 'react';
 import { Building2, Search, ChevronDown, ChevronUp, ExternalLink, Globe, MapPin } from 'lucide-react';
 import { searchAirports } from '../api';
 
@@ -53,10 +53,10 @@ function AirportExplorer() {
 
   return (
     <div className="page-container">
-      <title>Airport Explorer ÔÇö SkyQuery</title>
+      <title>Airport Explorer — SkyQuery</title>
 
       <div className="page-hero">
-        <h1>­ƒÅó Airport Explorer</h1>
+        <h1>🏢 Airport Explorer</h1>
         <p>Search airports worldwide by name, city, or IATA code</p>
       </div>
 
@@ -88,7 +88,7 @@ function AirportExplorer() {
         </div>
       </form>
 
-      {error && <div className="error-banner">ÔÜá {error}</div>}
+      {error && <div className="error-banner">⚠ {error}</div>}
 
       {isPending && (
         <div className="loading-container">
@@ -109,23 +109,23 @@ function AirportExplorer() {
                 <div className="airport-card" key={a.id || i}>
                   <div className="airport-header">
                     <div className="iata-badge" style={{ background: `linear-gradient(135deg, ${color} 0%, ${color}cc 100%)` }}>
-                      {a.iata_code || a.ident || 'ÔÇö'}
+                      {a.iata_code || a.ident || '—'}
                     </div>
                     <div>
                       <div className="airport-name">{a.name || 'Unknown Airport'}</div>
-                      <div className="airport-location">{[a.municipality, a.iso_country, a.continent].filter(Boolean).join(' ┬À ')}</div>
+                      <div className="airport-location">{[a.municipality, a.iso_country, a.continent].filter(Boolean).join(' · ')}</div>
                     </div>
                   </div>
                   <div style={{ display: 'inline-block', fontSize: 11, padding: '3px 10px', borderRadius: 6, background: `${color}22`, color, fontWeight: 600, marginBottom: 8 }}>
                     {formatType(a.type)}
                   </div>
                   <div className="airport-details">
-                    <div className="detail-item"><span className="detail-label">IATA Code</span><span className="detail-value">{a.iata_code || 'ÔÇö'}</span></div>
-                    <div className="detail-item"><span className="detail-label">ICAO / Ident</span><span className="detail-value">{a.ident || 'ÔÇö'}</span></div>
-                    <div className="detail-item"><span className="detail-label">Latitude</span><span className="detail-value">{a.latitude_deg != null ? `${Number(a.latitude_deg).toFixed(4)}┬░` : 'ÔÇö'}</span></div>
-                    <div className="detail-item"><span className="detail-label">Longitude</span><span className="detail-value">{a.longitude_deg != null ? `${Number(a.longitude_deg).toFixed(4)}┬░` : 'ÔÇö'}</span></div>
-                    <div className="detail-item"><span className="detail-label">Elevation</span><span className="detail-value">{a.elevation_ft != null ? `${Number(a.elevation_ft).toLocaleString()} ft` : 'ÔÇö'}</span></div>
-                    <div className="detail-item"><span className="detail-label">Scheduled Service</span><span className="detail-value" style={{ color: a.scheduled_service === 'yes' ? '#22c55e' : '#64748b' }}>{a.scheduled_service === 'yes' ? 'Ô£ô Yes' : 'Ô£ù No'}</span></div>
+                    <div className="detail-item"><span className="detail-label">IATA Code</span><span className="detail-value">{a.iata_code || '—'}</span></div>
+                    <div className="detail-item"><span className="detail-label">ICAO / Ident</span><span className="detail-value">{a.ident || '—'}</span></div>
+                    <div className="detail-item"><span className="detail-label">Latitude</span><span className="detail-value">{a.latitude_deg != null ? `${Number(a.latitude_deg).toFixed(4)}°` : '—'}</span></div>
+                    <div className="detail-item"><span className="detail-label">Longitude</span><span className="detail-value">{a.longitude_deg != null ? `${Number(a.longitude_deg).toFixed(4)}°` : '—'}</span></div>
+                    <div className="detail-item"><span className="detail-label">Elevation</span><span className="detail-value">{a.elevation_ft != null ? `${Number(a.elevation_ft).toLocaleString()} ft` : '—'}</span></div>
+                    <div className="detail-item"><span className="detail-label">Scheduled Service</span><span className="detail-value" style={{ color: a.scheduled_service === 'yes' ? '#22c55e' : '#64748b' }}>{a.scheduled_service === 'yes' ? '✓ Yes' : '✗ No'}</span></div>
                   </div>
                   <div className="airport-links">
                     {a.home_link && <a href={a.home_link} target="_blank" rel="noopener noreferrer"><Globe size={12} style={{ display: 'inline', marginRight: 4 }} />Website</a>}
@@ -140,7 +140,7 @@ function AirportExplorer() {
       )}
 
       {!isPending && searched && airports.length === 0 && !error && (
-        <div className="empty-state"><div className="icon">­ƒöì</div><h3>No airports found</h3><p>Try a different search term</p></div>
+        <div className="empty-state"><div className="icon">🔍</div><h3>No airports found</h3><p>Try a different search term</p></div>
       )}
 
       {!searched && !isPending && (

@@ -1,4 +1,4 @@
-﻿import React, { useState, useTransition, useId, useCallback } from 'react';
+import React, { useState, useTransition, useId, useCallback } from 'react';
 import { MapPin, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { whereToFly } from '../api';
@@ -64,10 +64,10 @@ function WhereToFly() {
 
   return (
     <div className="page-container">
-      <title>Where to Fly ÔÇö SkyQuery</title>
+      <title>Where to Fly — SkyQuery</title>
 
       <div className="page-hero">
-        <h1>­ƒù║ Where to Fly</h1>
+        <h1>🗺 Where to Fly</h1>
         <p>Discover the cheapest destinations from any airport</p>
       </div>
 
@@ -100,14 +100,14 @@ function WhereToFly() {
         </div>
       </form>
 
-      {error && <div className="error-banner">ÔÜá {error}</div>}
+      {error && <div className="error-banner">⚠ {error}</div>}
 
       {isPending && (
         <div className="loading-container">
           <div className="spinner" />
           <div className="loading-text">
             Finding cheapest destinations...
-            <span className="warning">ÔÅ▒ Hive queries may take 2ÔÇô8 minutes on 80M rows</span>
+            <span className="warning">⏱ Hive queries may take 2–8 minutes on 80M rows</span>
           </div>
         </div>
       )}
@@ -144,7 +144,7 @@ function WhereToFly() {
       )}
 
       {!isPending && searched && destinations.length === 0 && !error && (
-        <div className="empty-state"><div className="icon">­ƒöì</div><h3>No destinations found</h3><p>Try a different origin airport</p></div>
+        <div className="empty-state"><div className="icon">🔍</div><h3>No destinations found</h3><p>Try a different origin airport</p></div>
       )}
 
       {!searched && !isPending && (

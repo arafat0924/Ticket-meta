@@ -8,8 +8,6 @@ from pyspark.sql import SparkSession
 import os
 import json
 import re
-import threading
-import time
 
 app = Flask(__name__)
 CORS(app)
@@ -18,193 +16,59 @@ CORS(app)
 # PySpark Session (singleton)
 # ---------------------------------------------------------------------------
 _spark = None
-_spark_status = "cold"
-_spark_error = ""
-_spark_lock = threading.Lock()
-
-
-def _build_spark_session():
-    """Create a Spark session object (blocking)."""
-    spark_master = os.environ.get("SPARK_MASTER", "local[*]")
-
-    builder = (
-        SparkSession.builder
-        .appName("SkyQuery-FlaskAPI")
-        .master(spark_master)
-        .config("spark.sql.shuffle.partitions", "8")
-        .config("spark.driver.memory", "2g")
-        .config("spark.executor.memory", "2g")
-        .config("spark.sql.hive.metastore.jars", "builtin")
-        .config("spark.sql.catalogImplementation", "hive")
-    )
-
-    if spark_master.startswith("yarn"):
-        builder = (
-            builder
-            .config("spark.submit.deployMode", "client")
-            .config("spark.executor.instances", "2")
-            .config("spark.yarn.queue", "default")
-        )
-
-    metastore_uri = os.environ.get("HIVE_METASTORE_URIS", "thrift://localhost:9083")
-    if metastore_uri:
-        builder = builder.config("hive.metastore.uris", metastore_uri)
-
-    use_extra_packages = os.environ.get("SPARK_USE_EXTRA_PACKAGES", "0") == "1"
-    if use_extra_packages:
-        builder = builder.config(
-            "spark.jars.packages",
-            "org.apache.logging.log4j:log4j-api:2.10.0,"
-            "org.apache.derby:derby:10.14.1.0,"
-            "org.apache.hive:hive-metastore:3.1.3,"
-            "org.apache.hive:hive-exec:3.1.3,"
-            "org.apache.hive:hive-common:3.1.3,"
-            "org.apache.hive:hive-serde:3.1.3,"
-            "com.google.guava:guava:19.0,"
-            "org.apache.hadoop:hadoop-client-api:3.1.0,"
-            "org.apache.hadoop:hadoop-client-runtime:3.1.0"
-        ).config("spark.sql.hive.metastore.version", "3.1.3")
-
-    spark = builder.enableHiveSupport().getOrCreate()
-
-    preferred_db = os.environ.get("FLIGHT_DB", "ticketmeta09")
-    try:
-        spark.sql(f"USE {preferred_db}")
-        print(f"Using database: {preferred_db}")
-    except Exception as e:
-        print(f"Database '{preferred_db}' not found. Falling back to current schema. Details: {e}")
-
-    try:
-        tables = [r["tableName"] for r in spark.sql("SHOW TABLES").collect()]
-        if "itineraries_orc" in tables:
-            print("Found optimized itineraries_orc table!")
-            print("Caching itineraries_orc for faster repeated queries...")
-            spark.sql("CACHE LAZY TABLE itineraries_orc")
-        else:
-            print("No optimized table found. Consider running the optimization script.")
-            print("Skipping external-table cache warm-up to avoid metastore compatibility issues.")
-    except Exception as e:
-        print(f"Cache/optimization check: {e}")
-
-    return spark
-
-
-def _spark_init_worker():
-    """Initialize Spark in background to avoid blocking request threads."""
-    global _spark, _spark_status, _spark_error
-    try:
-        _spark = _build_spark_session()
-        _spark_status = "ready"
-        _spark_error = ""
-    except Exception as e:
-        _spark = None
-        _spark_status = "error"
-        _spark_error = str(e)
-
-
-def ensure_spark_started():
-    """Ensure background Spark initialization is started exactly once."""
-    global _spark, _spark_status, _spark_error
-    with _spark_lock:
-        if _spark is not None:
-            try:
-                if not _spark._jsc.sc().isStopped():
-                    _spark_status = "ready"
-                    return
-            except Exception:
-                pass
-            _spark = None
-            _spark_status = "cold"
-
-        if _spark_status == "initializing":
-            return
-
-        _spark_status = "initializing"
-        _spark_error = ""
-        threading.Thread(target=_spark_init_worker, daemon=True).start()
 
 def get_spark():
-    """Get Spark quickly if ready; start background init if needed."""
-    ensure_spark_started()
-    if _spark_status == "ready":
-        return _spark
-    return None
+    """Get or create a SparkSession with Hive support."""
+    global _spark
+    if _spark is None or _spark._jsc.sc().isStopped():
+        _spark = (
+            SparkSession.builder
+            .appName("SkyQuery-FlaskAPI")
+            .master("yarn")
+            .config("spark.submit.deployMode", "client")
+            .config("spark.sql.shuffle.partitions", "8")
+            .config("spark.driver.memory", "2g")
+            .config("spark.executor.memory", "2g")
+            .config("spark.executor.instances", "2")
+            .config("spark.yarn.queue", "default")
+            .enableHiveSupport()
+            .getOrCreate()
+        )
+        _spark.sql("USE ticketmeta09")
+
+        # Try to use the optimized ORC table if it exists, otherwise cache
+        try:
+            tables = [r["tableName"] for r in _spark.sql("SHOW TABLES").collect()]
+            if "itineraries_orc" in tables:
+                print("Found optimized itineraries_orc table!")
+            else:
+                print("No optimized table found. Consider running the optimization script.")
+                print("Caching ext_itineraries for faster repeated queries...")
+                _spark.sql("CACHE LAZY TABLE ext_itineraries")
+        except Exception as e:
+            print(f"Cache/optimization check: {e}")
+    return _spark
 
 
 def get_flight_table():
-    """Return the best available flight table name.
-
-    Avoid ext_itineraries as implicit fallback because some Hive metastore
-    deployments expose API incompatibilities for that external table.
-    """
-    configured = os.environ.get("FLIGHT_TABLE", "").strip()
-    if configured:
-        return configured
-
+    """Return the best available flight table name."""
     spark = get_spark()
-    if spark is None:
-        return "itineraries_orc"
-
     try:
         tables = [r["tableName"] for r in spark.sql("SHOW TABLES").collect()]
-        # Prefer optimized/internal tables first.
-        for candidate in ["itineraries_orc", "itineraries", "flight_prices", "flights"]:
-            if candidate in tables:
-                return candidate
-
-        # As a last resort, use any non-external-looking table name.
-        safe_tables = [t for t in tables if not t.lower().startswith("ext_") and t.lower() != "ext_itineraries"]
-        if safe_tables:
-            return safe_tables[0]
-    except Exception:
+        if "itineraries_orc" in tables:
+            return "itineraries_orc"
+    except:
         pass
-
-    # Safe default (may still be missing, but avoids known broken external table fallback).
-    return "itineraries_orc"
-
-
-def get_table_columns(table_name):
-    """Return lowercase column names for a table, or empty list if unavailable."""
-    spark = get_spark()
-    if spark is None:
-        return []
-    try:
-        return [c.lower() for c in spark.table(table_name).columns]
-    except Exception:
-        return []
-
-
-def pick_first_column(columns, candidates):
-    """Pick the first existing column name from candidates."""
-    cols = set(columns)
-    for cand in candidates:
-        c = cand.lower()
-        if c in cols:
-            return c
-    return None
-
-
-def alias_metric_expr(column_name, alias_name, cast_type="DOUBLE"):
-    """Build a nullable SQL metric expression with a stable alias."""
-    if column_name:
-        return f"ROUND(CAST({column_name} AS {cast_type}), 2) AS {alias_name}"
-    return f"CAST(NULL AS {cast_type}) AS {alias_name}"
+    return "ext_itineraries"
 
 
 def run_query(sql):
     """Execute a Spark SQL / HiveQL query and return rows + column names."""
     spark = get_spark()
-    if spark is None:
-        raise TimeoutError("Spark is warming up. Please retry in 20-40 seconds.")
     df = spark.sql(sql)
     cols = df.columns
     rows = [row.asDict() for row in df.collect()]
     return cols, rows
-
-
-def _is_metastore_ext_error(msg):
-    m = (msg or "").lower()
-    return "unable to fetch table ext_itineraries" in m or ("unable to fetch table" in m and "invalid method name" in m)
 
 
 def clean_row(row_dict):
@@ -224,25 +88,16 @@ def clean_row(row_dict):
 # Health / Tables
 # ---------------------------------------------------------------------------
 @app.route("/api/health")
-@app.route("/api.now/health")
 def health():
-    # Fast health check by default so frontend status polling does not block on Spark startup.
-    deep = request.args.get("deep", "0") == "1"
-    if not deep:
-        return jsonify({"status": "connected", "mode": "quick"})
-
     try:
         spark = get_spark()
-        if spark is None:
-            return jsonify({"status": "warming-up", "mode": "deep"}), 503
         spark.sql("SELECT 1").collect()
-        return jsonify({"status": "connected", "mode": "deep"})
+        return jsonify({"status": "connected"})
     except Exception as e:
         return jsonify({"status": "error", "msg": str(e)})
 
 
 @app.route("/api/tables")
-@app.route("/api.now/tables")
 def tables():
     try:
         spark = get_spark()
@@ -253,37 +108,18 @@ def tables():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/table-schema")
-@app.route("/api.now/table-schema")
-def table_schema():
-    table = request.args.get("table", "").strip()
-    if not table:
-        return jsonify({"error": "table is required"}), 400
-
-    spark = get_spark()
-    try:
-        df = spark.table(table)
-        schema = [{"name": name, "type": dtype} for name, dtype in df.dtypes]
-        return jsonify({"table": table, "columns": schema})
-    except Exception as e:
-        return jsonify({"error": str(e), "table": table}), 500
-
-
 # ---------------------------------------------------------------------------
 # 1. Search Flights
 #    GET /api/search-flights?origin=MIA&dest=SFO&nonstop=true&sort=cheapest&limit=20
 # ---------------------------------------------------------------------------
 @app.route("/api/search-flights")
-@app.route("/api.now/search-flights")
 def search_flights():
     origin = request.args.get("origin", "").upper()
     dest = request.args.get("dest", "").upper()
     nonstop = request.args.get("nonstop", "false").lower() == "true"
     sort = request.args.get("sort", "cheapest")
-    limit = max(1, min(int(request.args.get("limit", 20)), 100))
+    limit = int(request.args.get("limit", 20))
     date = request.args.get("date", "")
-    allow_slow = request.args.get("allowSlow", "0") == "1"
-    sample_cap = max(limit, min(int(request.args.get("sampleCap", 40000)), 100000))
 
     if not origin or not dest:
         return jsonify({"error": "origin and dest are required"}), 400
@@ -299,46 +135,29 @@ def search_flights():
         order = "CAST(segmentsDurationInSeconds AS DOUBLE) ASC"
 
     tbl = get_flight_table()
-    select_cols = """
-        legId, searchDate, flightDate, startingAirport, destinationAirport,
-        travelDuration, isNonStop, isBasicEconomy, isRefundable,
-        CAST(baseFare AS DOUBLE) AS baseFare,
-        CAST(totalFare AS DOUBLE) AS totalFare,
-        CAST(seatsRemaining AS INT) AS seatsRemaining,
-        CAST(totalTravelDistance AS DOUBLE) AS totalTravelDistance,
-        segmentsDepartureTimeRaw, segmentsArrivalTimeRaw,
-        segmentsArrivalAirportCode, segmentsDepartureAirportCode,
-        segmentsAirlineName, segmentsAirlineCode,
-        segmentsEquipmentDescription, segmentsCabinCode
+    sql = f"""
+        SELECT legId, searchDate, flightDate, startingAirport, destinationAirport,
+               travelDuration, isNonStop, isBasicEconomy, isRefundable,
+               CAST(baseFare AS DOUBLE) AS baseFare,
+               CAST(totalFare AS DOUBLE) AS totalFare,
+               CAST(seatsRemaining AS INT) AS seatsRemaining,
+               CAST(totalTravelDistance AS DOUBLE) AS totalTravelDistance,
+               segmentsDepartureTimeRaw, segmentsArrivalTimeRaw,
+               segmentsArrivalAirportCode, segmentsDepartureAirportCode,
+               segmentsAirlineName, segmentsAirlineCode,
+               segmentsEquipmentDescription, segmentsCabinCode
+        FROM {tbl}
+        WHERE {where}
+        ORDER BY {order}
+        LIMIT {limit}
     """
-
-    if allow_slow or date:
-        # Exact mode: potentially slower but global ordering is preserved.
-        sql = f"""
-            SELECT {select_cols}
-            FROM {tbl}
-            WHERE {where}
-            ORDER BY {order}
-            LIMIT {limit}
-        """
-    else:
-        # Fast mode: Pre-sample to prevent Out-Of-Memory crashes on 80-million row raw datasets
-        sql = f"""
-            SELECT {select_cols}
-            FROM (
-                SELECT * FROM {tbl} WHERE {where} LIMIT 500
-            ) tmp
-            ORDER BY {order}
-            LIMIT {limit}
-        """
 
     try:
         cols, rows = run_query(sql)
         flights = [clean_row(r) for r in rows]
         return jsonify({"flights": flights, "count": len(flights), "query": sql.strip()})
     except Exception as e:
-        status_code = 503 if isinstance(e, TimeoutError) else 500
-        return jsonify({"error": str(e), "query": sql.strip()}), status_code
+        return jsonify({"error": str(e), "query": sql.strip()}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -346,7 +165,6 @@ def search_flights():
 #    GET /api/where-to-fly?origin=ATL&limit=10
 # ---------------------------------------------------------------------------
 @app.route("/api/where-to-fly")
-@app.route("/api.now/where-to-fly")
 def where_to_fly():
     origin = request.args.get("origin", "").upper()
     limit = int(request.args.get("limit", 10))
@@ -383,101 +201,33 @@ def where_to_fly():
 #    GET /api/when-to-fly?origin=ATL&dest=LAX
 # ---------------------------------------------------------------------------
 @app.route("/api/when-to-fly")
-@app.route("/api.now/when-to-fly")
 def when_to_fly():
     origin = request.args.get("origin", "").upper()
     dest = request.args.get("dest", "").upper()
-    allow_raw = request.args.get("allowRaw", "0") == "1"
-    # Reduced default cap from 250k to 10k to prevent timeouts
-    raw_sample_cap = max(5000, min(int(request.args.get("rawSampleCap", 10000)), 50000))
 
     if not origin or not dest:
         return jsonify({"error": "origin and dest are required"}), 400
 
-    spark = get_spark()
-    if spark is None:
-        return jsonify({"error": "Spark is warming up. Please retry in 20-40 seconds."}), 503
-    tables = [r["tableName"] for r in spark.sql("SHOW TABLES").collect()]
-
-    sql = ""
-    if "agg_price_by_month" in tables:
-        cols = get_table_columns("agg_price_by_month")
-        origin_col = pick_first_column(cols, ["startingAirport", "origin", "originAirport", "origin_airport"])
-        dest_col = pick_first_column(cols, ["destinationAirport", "dest", "destination", "destAirport", "destination_airport"])
-        month_col = pick_first_column(cols, ["month", "flight_month", "year_month"])
-        min_col = pick_first_column(cols, ["minFare", "min_fare"])
-        avg_col = pick_first_column(cols, ["avgFare", "avg_fare"])
-        max_col = pick_first_column(cols, ["maxFare", "max_fare"])
-        generic_fare_col = pick_first_column(cols, ["fare", "totalFare", "price", "meanFare", "averageFare"])
-        count_col = pick_first_column(cols, ["flightCount", "flight_count", "count", "records", "record_count"])
-
-        # Accept partial aggregate schemas and still return a stable API shape.
-        min_expr = alias_metric_expr(min_col or generic_fare_col, "minFare")
-        avg_expr = alias_metric_expr(avg_col or generic_fare_col or min_col or max_col, "avgFare")
-        max_expr = alias_metric_expr(max_col or generic_fare_col or avg_col or min_col, "maxFare")
-        count_expr = f"CAST({count_col} AS BIGINT) AS flightCount" if count_col else "CAST(NULL AS BIGINT) AS flightCount"
-
-        if all([origin_col, dest_col, month_col]) and (min_col or avg_col or max_col or generic_fare_col):
-            sql = f"""
-                SELECT {month_col} AS month,
-                       {min_expr},
-                       {avg_expr},
-                       {max_expr},
-                       {count_expr}
-                FROM agg_price_by_month
-                WHERE UPPER({origin_col}) = '{origin}'
-                  AND UPPER({dest_col}) = '{dest}'
-                ORDER BY month ASC
-            """
-
-    if not sql and allow_raw:
-        tbl = get_flight_table()
-        sql = f"""
-            SELECT SUBSTR(flightDate, 1, 7) AS month,
-                   ROUND(MIN(CAST(totalFare AS DOUBLE)), 2) AS minFare,
-                   ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgFare,
-                   ROUND(MAX(CAST(totalFare AS DOUBLE)), 2) AS maxFare,
-                   COUNT(*) AS flightCount
-            FROM {tbl}
-            WHERE startingAirport = '{origin}'
-              AND destinationAirport = '{dest}'
-            GROUP BY SUBSTR(flightDate, 1, 7)
-            ORDER BY month ASC
-        """
-
-    if not sql:
-        # Graceful fallback: use a capped sample from the raw table so users still
-        # get trends even when aggregate tables are missing or have schema drift.
-        tbl = get_flight_table()
-        sql = f"""
-            SELECT SUBSTR(flightDate, 1, 7) AS month,
-                   ROUND(MIN(CAST(totalFare AS DOUBLE)), 2) AS minFare,
-                   ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgFare,
-                   ROUND(MAX(CAST(totalFare AS DOUBLE)), 2) AS maxFare,
-                   COUNT(*) AS flightCount
-            FROM (
-                SELECT flightDate, totalFare
-                FROM {tbl}
-                WHERE startingAirport = '{origin}'
-                  AND destinationAirport = '{dest}'
-                LIMIT {raw_sample_cap}
-            ) t
-            GROUP BY SUBSTR(flightDate, 1, 7)
-            ORDER BY month ASC
-        """
+    tbl = get_flight_table()
+    sql = f"""
+        SELECT SUBSTR(flightDate, 1, 7) AS month,
+               ROUND(MIN(CAST(totalFare AS DOUBLE)), 2) AS minFare,
+               ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgFare,
+               ROUND(MAX(CAST(totalFare AS DOUBLE)), 2) AS maxFare,
+               COUNT(*) AS flightCount
+        FROM {tbl}
+        WHERE startingAirport = '{origin}'
+          AND destinationAirport = '{dest}'
+        GROUP BY SUBSTR(flightDate, 1, 7)
+        ORDER BY month ASC
+    """
 
     try:
         cols, rows = run_query(sql)
         months = [clean_row(r) for r in rows]
         return jsonify({"origin": origin, "dest": dest, "months": months, "query": sql.strip()})
     except Exception as e:
-        msg = str(e)
-        if _is_metastore_ext_error(msg):
-            return jsonify({
-                "error": "Flight data table is not compatible with current Hive metastore API. Please use the optimized internal table (itineraries_orc).",
-                "query": sql.strip()
-            }), 503
-        return jsonify({"error": msg, "query": sql.strip()}), 500
+        return jsonify({"error": str(e), "query": sql.strip()}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -485,99 +235,33 @@ def when_to_fly():
 #    GET /api/airline-comparison?origin=ATL&dest=LAX
 # ---------------------------------------------------------------------------
 @app.route("/api/airline-comparison")
-@app.route("/api.now/airline-comparison")
 def airline_comparison():
     origin = request.args.get("origin", "").upper()
     dest = request.args.get("dest", "").upper()
-    allow_raw = request.args.get("allowRaw", "0") == "1"
-    # Reduced default cap from 250k to 10k to prevent timeouts
-    raw_sample_cap = max(5000, min(int(request.args.get("rawSampleCap", 10000)), 50000))
 
     if not origin or not dest:
         return jsonify({"error": "origin and dest are required"}), 400
 
-    spark = get_spark()
-    if spark is None:
-        return jsonify({"error": "Spark is warming up. Please retry in 20-40 seconds."}), 503
-    tables = [r["tableName"] for r in spark.sql("SHOW TABLES").collect()]
-
-    sql = ""
-    if "agg_airline_comparison" in tables:
-        cols = get_table_columns("agg_airline_comparison")
-        origin_col = pick_first_column(cols, ["startingAirport", "origin", "originAirport", "origin_airport"])
-        dest_col = pick_first_column(cols, ["destinationAirport", "dest", "destination", "destAirport", "destination_airport"])
-        airline_col = pick_first_column(cols, ["airline", "segmentsAirlineName", "airline_name"])
-        min_col = pick_first_column(cols, ["minFare", "min_fare"])
-        avg_col = pick_first_column(cols, ["avgFare", "avg_fare"])
-        max_col = pick_first_column(cols, ["maxFare", "max_fare"])
-        generic_fare_col = pick_first_column(cols, ["fare", "totalFare", "price", "meanFare", "averageFare"])
-        count_col = pick_first_column(cols, ["flightCount", "flight_count", "count", "records", "record_count"])
-
-        min_expr = alias_metric_expr(min_col or generic_fare_col, "minFare")
-        avg_expr = alias_metric_expr(avg_col or generic_fare_col or min_col or max_col, "avgFare")
-        max_expr = alias_metric_expr(max_col or generic_fare_col or avg_col or min_col, "maxFare")
-        count_expr = f"CAST({count_col} AS BIGINT) AS flightCount" if count_col else "CAST(NULL AS BIGINT) AS flightCount"
-
-        if all([origin_col, dest_col, airline_col]) and (min_col or avg_col or max_col or generic_fare_col):
-            sql = f"""
-                SELECT {airline_col} AS airline,
-                       {min_expr},
-                       {avg_expr},
-                       {max_expr},
-                       {count_expr}
-                FROM agg_airline_comparison
-                WHERE UPPER({origin_col}) = '{origin}'
-                  AND UPPER({dest_col}) = '{dest}'
-                ORDER BY avgFare ASC
-            """
-
-    if not sql and allow_raw:
-        tbl = get_flight_table()
-        sql = f"""
-            SELECT segmentsAirlineName AS airline,
-                   ROUND(MIN(CAST(totalFare AS DOUBLE)), 2) AS minFare,
-                   ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgFare,
-                   ROUND(MAX(CAST(totalFare AS DOUBLE)), 2) AS maxFare,
-                   COUNT(*) AS flightCount
-            FROM {tbl}
-            WHERE startingAirport = '{origin}'
-              AND destinationAirport = '{dest}'
-            GROUP BY segmentsAirlineName
-            ORDER BY avgFare ASC
-        """
-
-    if not sql:
-        # Graceful fallback with capped raw scan to avoid hard-failing the UI.
-        tbl = get_flight_table()
-        sql = f"""
-            SELECT segmentsAirlineName AS airline,
-                   ROUND(MIN(CAST(totalFare AS DOUBLE)), 2) AS minFare,
-                   ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgFare,
-                   ROUND(MAX(CAST(totalFare AS DOUBLE)), 2) AS maxFare,
-                   COUNT(*) AS flightCount
-            FROM (
-                SELECT segmentsAirlineName, totalFare
-                FROM {tbl}
-                WHERE startingAirport = '{origin}'
-                  AND destinationAirport = '{dest}'
-                LIMIT {raw_sample_cap}
-            ) t
-            GROUP BY segmentsAirlineName
-            ORDER BY avgFare ASC
-        """
+    tbl = get_flight_table()
+    sql = f"""
+        SELECT segmentsAirlineName AS airline,
+               ROUND(MIN(CAST(totalFare AS DOUBLE)), 2) AS minFare,
+               ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgFare,
+               ROUND(MAX(CAST(totalFare AS DOUBLE)), 2) AS maxFare,
+               COUNT(*) AS flightCount
+        FROM {tbl}
+        WHERE startingAirport = '{origin}'
+          AND destinationAirport = '{dest}'
+        GROUP BY segmentsAirlineName
+        ORDER BY avgFare ASC
+    """
 
     try:
         cols, rows = run_query(sql)
         airlines = [clean_row(r) for r in rows]
         return jsonify({"origin": origin, "dest": dest, "airlines": airlines, "query": sql.strip()})
     except Exception as e:
-        msg = str(e)
-        if _is_metastore_ext_error(msg):
-            return jsonify({
-                "error": "Flight data table is not compatible with current Hive metastore API. Please use the optimized internal table (itineraries_orc).",
-                "query": sql.strip()
-            }), 503
-        return jsonify({"error": msg, "query": sql.strip()}), 500
+        return jsonify({"error": str(e), "query": sql.strip()}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -585,7 +269,6 @@ def airline_comparison():
 #    GET /api/airports?q=Tokyo
 # ---------------------------------------------------------------------------
 @app.route("/api/airports")
-@app.route("/api.now/airports")
 def airports():
     q = request.args.get("q", "")
     limit = int(request.args.get("limit", 20))
@@ -615,36 +298,12 @@ def airports():
 
 
 # ---------------------------------------------------------------------------
-# 6. AI Chatbot  (Text-to-SQL via DeepSeek AI)
+# 6. AI Chatbot  (Text-to-SQL via DeepSeek AI) — STREAMING via SSE
 #    POST /api/chatbot  {"question": "cheapest flights from ATL"}
+#    POST /api/chatbot/stream  (same body, returns SSE stream)
 # ---------------------------------------------------------------------------
-@app.route("/api/chatbot", methods=["POST"])
-@app.route("/api.now/chatbot", methods=["POST"])
-def chatbot():
-    data = request.get_json(force=True)
-    question = data.get("question", "")
-    history = data.get("history", [])  # Last 10 messages for context
 
-    if not question:
-        return jsonify({"error": "question is required"}), 400
-
-    try:
-        import openai
-    except ImportError:
-        return jsonify({
-            "error": "openai package not installed. Run: pip install openai",
-            "answer": "AI assistant is not configured on the server."
-        }), 500
-
-    # DeepSeek API configuration
-    api_key = os.environ.get("DEEPSEEK_API_KEY", "sk-ebc20963bcba441e91e7917fc616a097")
-    if not api_key:
-        return jsonify({
-            "error": "DEEPSEEK_API_KEY not set",
-            "answer": "DeepSeek API key is not configured on the server."
-        }), 500
-
-    schema_prompt = """
+CHATBOT_SCHEMA_PROMPT = """
 You are a friendly AI flight assistant called Data Turbulence. You help users find flight information by querying a Hive database.
 
 BEHAVIOR RULES:
@@ -654,7 +313,7 @@ BEHAVIOR RULES:
 
 DATABASE SCHEMA (ticketmeta09):
 
-Table: ext_itineraries
+TABLE: ext_itineraries (use """ + '"{tbl}"' + """ at runtime)
 Columns (ALL STRING type - must CAST for numeric operations):
   legId, searchDate, flightDate, startingAirport, destinationAirport,
   fareBasisCode, travelDuration, elapsedDays, isBasicEconomy, isRefundable,
@@ -671,6 +330,7 @@ Important SQL rules:
 - isNonStop values are 'True' or 'False' (strings)
 - Airport codes are IATA (ATL, LAX, JFK, SFO, ORD, MIA)
 - Always add LIMIT (default 20) to avoid huge scans
+- ALWAYS use ext_itineraries as the table name
 
 Table: airports
 Columns: id INT, ident, type, name, latitude_deg DOUBLE, longitude_deg DOUBLE,
@@ -682,86 +342,178 @@ Table: countries
 Columns: id INT, code, name, continent, wikipedia_link, keywords
 """
 
-    sql = ""
-    try:
-        client = openai.OpenAI(
-            api_key=api_key,
-            base_url="https://api.deepseek.com"
-        )
 
-        # Build messages with conversation history for context
-        messages = [{"role": "system", "content": schema_prompt}]
+def _build_ai_messages(question, history):
+    """Build the OpenAI message list from question + history."""
+    messages = [{"role": "system", "content": CHATBOT_SCHEMA_PROMPT}]
+    if history and isinstance(history, list):
+        for msg in history[-10:]:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role in ("user", "assistant") and content:
+                messages.append({"role": role, "content": content})
+    else:
+        messages.append({"role": "user", "content": question})
+    if not messages[-1].get("content", "").strip() == question:
+        messages.append({"role": "user", "content": question})
+    return messages
 
-        # Add last 10 conversation messages as context
-        if history and isinstance(history, list):
-            for msg in history[-10:]:
-                role = msg.get("role", "user")
-                content = msg.get("content", "")
-                if role in ("user", "assistant") and content:
-                    messages.append({"role": role, "content": content})
-        else:
-            # No history, just send the current question
-            messages.append({"role": "user", "content": question})
 
-        # Ensure the last message is the current question
-        if not messages[-1].get("content", "").strip() == question:
-            messages.append({"role": "user", "content": question})
+def _call_deepseek(messages):
+    """Call DeepSeek API and return the raw text response."""
+    import openai
+    api_key = os.environ.get("DEEPSEEK_API_KEY", "sk-ebc20963bcba441e91e7917fc616a097")
+    client = openai.OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+    response = client.chat.completions.create(
+        model="deepseek-chat",
+        messages=messages,
+        temperature=0,
+        max_tokens=500,
+        timeout=30,  # 30s timeout for AI response
+    )
+    return response.choices[0].message.content.strip()
 
-        response = client.chat.completions.create(
-            model="deepseek-chat",
-            messages=messages,
-            temperature=0,
-            max_tokens=500
-        )
-        sql = response.choices[0].message.content.strip()
 
-        # Check if it's a conversational response (CHAT: prefix)
-        if sql.startswith("CHAT:"):
-            chat_message = sql[5:].strip()
-            return jsonify({
-                "answer": chat_message,
-                "sql": None,
-                "results": None
-            })
+def _clean_sql(raw):
+    """Clean markdown fences, replace table name placeholder, enforce LIMIT."""
+    sql = re.sub(r"^```(sql|hive|sparksql)?\s*", "", raw)
+    sql = re.sub(r"\s*```$", "", sql)
+    sql = sql.strip()
+    # Replace placeholder table with actual optimised table
+    tbl = get_flight_table()
+    sql = sql.replace("ext_itineraries", tbl)
+    # Enforce LIMIT if missing
+    if "LIMIT" not in sql.upper():
+        sql = sql.rstrip("; ") + " LIMIT 20"
+    return sql
 
-        # Clean up markdown code blocks
-        sql = re.sub(r"^```(sql|hive|sparksql)?\s*", "", sql)
-        sql = re.sub(r"\s*```$", "", sql)
 
-        # Safety: only allow SELECT
+def _run_query_with_timeout(sql, timeout_seconds=120):
+    """Run a Spark SQL query with a timeout. Returns (cols, rows) or raises."""
+    import threading
+
+    result = {"cols": None, "rows": None, "error": None}
+
+    def target():
+        try:
+            cols, rows = run_query(sql)
+            result["cols"] = cols
+            result["rows"] = rows
+        except Exception as e:
+            result["error"] = e
+
+    thread = threading.Thread(target=target, daemon=True)
+    thread.start()
+    thread.join(timeout=timeout_seconds)
+
+    if thread.is_alive():
+        raise TimeoutError(f"Query timed out after {timeout_seconds}s. Try a more specific query with filters.")
+    if result["error"]:
+        raise result["error"]
+    return result["cols"], result["rows"]
+
+
+# ---------- SSE streaming endpoint (primary) ----------
+@app.route("/api/chatbot/stream", methods=["POST"])
+def chatbot_stream():
+    from flask import Response
+
+    data = request.get_json(force=True)
+    question = data.get("question", "")
+    history = data.get("history", [])
+
+    if not question:
+        def err():
+            yield f"data: {json.dumps({'type': 'error', 'message': 'question is required'})}\n\n"
+        return Response(err(), mimetype="text/event-stream")
+
+    def generate():
+        # Phase 1 — call DeepSeek AI
+        yield f"data: {json.dumps({'type': 'status', 'message': 'Asking AI...'})}\n\n"
+        try:
+            messages = _build_ai_messages(question, history)
+            raw = _call_deepseek(messages)
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': f'AI error: {str(e)}'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
+
+        # Phase 2 — check if it's a chat response
+        if raw.startswith("CHAT:"):
+            chat_msg = raw[5:].strip()
+            yield f"data: {json.dumps({'type': 'answer', 'answer': chat_msg, 'sql': None, 'results': None})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
+
+        # Phase 3 — it's SQL
+        sql = _clean_sql(raw)
+
         if not sql.upper().strip().startswith("SELECT"):
-            return jsonify({
-                "answer": sql if len(sql) > 20 else "I can only run SELECT queries for safety.",
-                "sql": None if len(sql) > 20 else sql,
-                "results": None
-            })
+            yield f"data: {json.dumps({'type': 'answer', 'answer': sql if len(sql) > 20 else 'I can only run SELECT queries for safety.', 'sql': None, 'results': None})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
 
-        cols, rows = run_query(sql)
+        # Send SQL immediately so user sees it while query runs
+        yield f"data: {json.dumps({'type': 'sql', 'sql': sql})}\n\n"
+        yield f"data: {json.dumps({'type': 'status', 'message': 'Running query on Hive...'})}\n\n"
+
+        # Phase 4 — execute query with timeout
+        try:
+            cols, rows = _run_query_with_timeout(sql, timeout_seconds=120)
+            results = [clean_row(r) for r in rows]
+            yield f"data: {json.dumps({'type': 'answer', 'answer': f'Found {len(results)} results.', 'sql': sql, 'results': results})}\n\n"
+        except TimeoutError as te:
+            yield f"data: {json.dumps({'type': 'answer', 'answer': f'⏱ {str(te)}', 'sql': sql, 'results': None})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'answer', 'answer': f'Query error: {str(e)}', 'sql': sql, 'results': None})}\n\n"
+
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+    return Response(generate(), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+# ---------- Legacy non-streaming endpoint (kept for compatibility) ----------
+@app.route("/api/chatbot", methods=["POST"])
+def chatbot():
+    data = request.get_json(force=True)
+    question = data.get("question", "")
+    history = data.get("history", [])
+
+    if not question:
+        return jsonify({"error": "question is required"}), 400
+
+    try:
+        import openai
+    except ImportError:
+        return jsonify({"error": "openai not installed", "answer": "AI not configured."}), 500
+
+    try:
+        messages = _build_ai_messages(question, history)
+        raw = _call_deepseek(messages)
+
+        if raw.startswith("CHAT:"):
+            return jsonify({"answer": raw[5:].strip(), "sql": None, "results": None})
+
+        sql = _clean_sql(raw)
+
+        if not sql.upper().strip().startswith("SELECT"):
+            return jsonify({"answer": sql if len(sql) > 20 else "I can only run SELECT queries for safety.", "sql": None, "results": None})
+
+        cols, rows = _run_query_with_timeout(sql, timeout_seconds=120)
         results = [clean_row(r) for r in rows]
+        return jsonify({"answer": f"Found {len(results)} results.", "sql": sql, "results": results})
 
-        return jsonify({
-            "answer": f"Found {len(results)} results.",
-            "sql": sql,
-            "results": results
-        })
-
+    except TimeoutError as te:
+        return jsonify({"answer": f"⏱ {str(te)}", "sql": sql, "results": None})
     except Exception as e:
-        return jsonify({"error": str(e), "sql": sql}), 500
+        return jsonify({"error": str(e), "sql": locals().get("sql", "")}), 500
 
 
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    print("Initializing Flight Search API...")
-    try:
-        # Ensure Spark is starting in background
-        ensure_spark_started()
-        
-        print("Starting Flask server on port 5000...")
-        # Threaded mode keeps health and other lightweight routes responsive
-        app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
-    except Exception as e:
-        print(f"CRITICAL ERROR: Failed to start server: {e}")
-        # Write to a fallback error log just in case stdout is lost
-        with open("server_error.log", "w") as f:
-            f.write(str(e))
-        raise
+    # Initialize Spark on startup
+    print("Initializing SparkSession with Hive support...")
+    get_spark()
+    print("SparkSession ready. Starting Flask server...")
+    app.run(host="0.0.0.0", port=5000, debug=False)
