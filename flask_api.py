@@ -1089,29 +1089,31 @@ def enrichment_brand():
         return {"routes": routes, "comparisons": all_comparisons, "routeQuery": routes_sql.strip()}
     try:
         result = cached_query("brand_analysis", _query)
-        # Load delay CSV if available
+        # Load delay data from Hive ORC table (same HDFS+Hive+ORC pipeline as teacher's dataset)
         delay_data = {}
         try:
-            csv_path = os.path.join(os.path.dirname(__file__), "Airline_Delay_Cause.csv")
-            if not os.path.exists(csv_path):
-                csv_path = "/home/azmine/flight_api/Airline_Delay_Cause.csv"
-            with open(csv_path, "r") as f:
-                reader = csv_mod.DictReader(f)
-                for row in reader:
-                    carrier = row.get("carrier_name","").strip()
-                    if carrier:
-                        if carrier not in delay_data:
-                            delay_data[carrier] = {"total_delays":0, "total_flights":0, "entries":0}
-                        try:
-                            delay_data[carrier]["total_delays"] += float(row.get("arr_del15",0) or 0)
-                            delay_data[carrier]["total_flights"] += float(row.get("arr_flights",0) or 0)
-                            delay_data[carrier]["entries"] += 1
-                        except: pass
-            for k,v in delay_data.items():
-                if v["total_flights"] > 0:
-                    v["onTimePct"] = round((1 - v["total_delays"]/v["total_flights"])*100, 1)
-                else:
-                    v["onTimePct"] = None
+            delay_sql = """
+                SELECT carrier_name,
+                       ROUND(SUM(arr_del15),0) AS total_delays,
+                       ROUND(SUM(arr_flights),0) AS total_flights,
+                       COUNT(*) AS entries,
+                       ROUND((1 - SUM(arr_del15)/SUM(arr_flights))*100, 1) AS onTimePct
+                FROM airline_delay_cause_orc
+                WHERE carrier_name IS NOT NULL
+                GROUP BY carrier_name
+                ORDER BY total_flights DESC
+            """
+            _, delay_rows = run_query(delay_sql)
+            for row in delay_rows:
+                r = clean_row(row)
+                carrier = r.get("carrier_name","")
+                if carrier:
+                    delay_data[carrier] = {
+                        "total_delays": r.get("total_delays", 0),
+                        "total_flights": r.get("total_flights", 0),
+                        "entries": r.get("entries", 0),
+                        "onTimePct": r.get("onTimePct"),
+                    }
         except Exception as ce:
             delay_data = {"_error": str(ce)}
         result["delayData"] = delay_data
