@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Landing from './pages/Landing';
 import FlightSearch from './pages/FlightSearch';
@@ -10,12 +10,9 @@ import DataEnrichment from './pages/DataEnrichment';
 import './App.css';
 
 function AppContent() {
-  const location = useLocation();
-  const isLanding = location.pathname === '/';
-
   return (
     <div className="app">
-      {!isLanding && <Navbar />}
+      <Navbar />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/flights" element={<FlightSearch />} />
