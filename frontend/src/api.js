@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = 'http://192.168.56.101:5000/api';
+const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://192.168.56.105:5000/api';
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -28,6 +28,13 @@ export const flightSplicing = (params) => api.get('/flight-splicing', { params }
 // Where to Fly with budget + distance
 export const whereToFlyBudget = (params) => api.get('/where-to-fly-budget', { params });
 
+// Data Enrichment endpoints
+export const enrichmentWeather = (airport) => api.get('/enrichment/weather', { params: { airport } });
+export const enrichmentWealth = () => api.get('/enrichment/wealth');
+export const enrichmentBrand = () => api.get('/enrichment/brand');
+export const enrichmentRail = () => api.get('/enrichment/rail');
+export const enrichmentGhost = () => api.get('/enrichment/ghost');
+
 // Legacy non-streaming chatbot (fallback)
 export const chatbot = (question, history = []) => api.post('/chatbot', { question, history });
 
@@ -47,6 +54,12 @@ export function chatbotStream(question, history = [], onEvent) {
     signal: controller.signal,
   })
     .then(async (response) => {
+      // If streaming endpoint returns 404 or error, fall back to non-streaming
+      if (!response.ok) {
+        console.warn(`Stream endpoint returned ${response.status}, falling back to non-streaming...`);
+        return fallbackToNonStreaming(question, history, onEvent, controller.signal);
+      }
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -79,15 +92,50 @@ export function chatbotStream(question, history = [], onEvent) {
           onEvent(event);
         } catch { /* ignore */ }
       }
+
+      // Ensure done is fired
+      onEvent({ type: 'done' });
     })
     .catch((err) => {
       if (err.name !== 'AbortError') {
-        onEvent({ type: 'error', message: err.message });
-        onEvent({ type: 'done' });
+        // Try fallback on network errors too
+        console.warn('Stream failed, trying non-streaming fallback:', err.message);
+        fallbackToNonStreaming(question, history, onEvent, controller.signal);
       }
     });
 
   return controller;
+}
+
+/**
+ * Fallback: use the non-streaming /chatbot endpoint when streaming is unavailable.
+ */
+async function fallbackToNonStreaming(question, history, onEvent, signal) {
+  try {
+    onEvent({ type: 'status', message: 'Processing (non-streaming mode)...' });
+    const res = await api.post('/chatbot', { question, history }, { signal });
+    const data = res.data;
+
+    if (data.error && !data.answer) {
+      onEvent({ type: 'error', message: data.error });
+    } else {
+      if (data.sql) {
+        onEvent({ type: 'sql', sql: data.sql });
+      }
+      onEvent({
+        type: 'answer',
+        answer: data.answer || 'No response received.',
+        sql: data.sql || null,
+        results: data.results || null,
+      });
+    }
+  } catch (err) {
+    if (err.name !== 'AbortError' && err.name !== 'CanceledError') {
+      const msg = err.response?.data?.error || err.response?.data?.answer || err.message;
+      onEvent({ type: 'error', message: msg });
+    }
+  }
+  onEvent({ type: 'done' });
 }
 
 export default api;
