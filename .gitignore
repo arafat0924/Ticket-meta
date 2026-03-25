@@ -36,3 +36,6 @@ __pycache__/
 .Python
 venv/
 env/
+
+.venv/
+package-lock.json
