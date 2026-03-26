@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { enrichmentWeather, enrichmentWealth, enrichmentBrand, enrichmentRail, enrichmentGhost } from '../api';
-import { CloudRain, DollarSign, Award, Train, Ghost, Loader2, AlertTriangle, ExternalLink, TrendingUp, BarChart3, Database, Globe, CloudLightning, Sun, ArrowUpRight, CalendarDays, Landmark, Home, Wallet, GitCompareArrows, TrainFront, Plane, TrendingDown, MapPin, Search, ShieldAlert, Activity, Smartphone } from 'lucide-react';
+import { CloudRain, DollarSign, Award, Train, Ghost, Loader2, AlertTriangle, ExternalLink, TrendingUp, BarChart3, Database, Globe, CloudLightning, Sun, ArrowUpRight, CalendarDays, Landmark, Home, Wallet, GitCompareArrows, TrainFront, Plane, TrendingDown, MapPin, Search, ShieldAlert, Activity, Smartphone, Code2, ChevronDown, ChevronUp, Terminal } from 'lucide-react';
 
 const TABS = [
   { id: 'weather', label: 'Weather Impact', icon: CloudRain, color: '#3b82f6' },
@@ -57,6 +57,150 @@ function MiniCompareBar({ label1, val1, label2, val2, color1 = '#ef4444', color2
     </div>
   );
 }
+
+/* ── Query Viewer Component (collapsible HiveQL/SparkSQL display) ── */
+function QueryViewer({ queries }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="enr-query-wrap">
+      <button className="enr-query-toggle" onClick={() => setOpen(!open)}>
+        <Code2 size={14} />
+        <span>View HiveQL / SparkSQL Queries ({queries.length})</span>
+        {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+      </button>
+      {open && (
+        <div className="enr-query-panel">
+          {queries.map((q, i) => (
+            <div key={i} className="enr-query-block">
+              <div className="enr-query-header">
+                <Terminal size={12} />
+                <span className="enr-query-label">{q.label}</span>
+                <span className="enr-query-engine">{q.engine || 'SparkSQL (via PySpark)'}</span>
+              </div>
+              <pre className="enr-query-code"><code>{q.sql}</code></pre>
+              {q.note && <p className="enr-query-note">{q.note}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Query definitions for each enrichment tab ── */
+const QUERIES = {
+  weather: [
+    { label: 'Daily Flight Aggregation by Airport', sql: `-- Executed via spark.sql() on Hive warehouse (ticketmeta09)
+SELECT flightDate,
+       ROUND(AVG(totalFare), 2)    AS avgFare,
+       COUNT(*)                     AS flightCount,
+       SUM(CASE WHEN isNonStop = true THEN 1 ELSE 0 END) AS nonstopCount,
+       SUM(CASE WHEN isNonStop = false THEN 1 ELSE 0 END) AS connectingCount,
+       ROUND(AVG(seatsRemaining), 1) AS avgSeats,
+       ROUND(AVG(DATEDIFF(flightDate, searchDate)), 1) AS avgLeadDays
+FROM   itineraries_orc
+WHERE  startingAirport = '{airport}'
+GROUP BY flightDate
+ORDER BY flightDate;`, note: 'Reads from ORC-optimized Hive table partitioned by startingAirport. Executed by PySpark on HDFS cluster.' },
+    { label: 'External Weather Enrichment', engine: 'Python + REST API', sql: `# Open-Meteo Historical Weather API call
+GET https://archive-api.open-meteo.com/v1/archive
+  ?latitude={lat}&longitude={lon}
+  &start_date=2022-01-01&end_date=2022-12-31
+  &daily=temperature_2m_max,windspeed_10m_max,
+         precipitation_sum,weathercode`, note: 'Weather data joined with Hive flight data in Python after both queries complete.' },
+  ],
+  wealth: [
+    { label: 'Per-Mile Pricing by Origin Airport', sql: `-- Executed via spark.sql() on Hive warehouse
+SELECT startingAirport,
+       ROUND(AVG(totalFare / travelDistance), 6) AS avgPricePerMile,
+       ROUND(AVG(totalFare), 2)                  AS avgFare,
+       COUNT(*)                                   AS flightCount
+FROM   itineraries_orc
+WHERE  travelDistance > 0
+GROUP BY startingAirport
+ORDER BY avgPricePerMile DESC;`, note: 'Results are enriched with US Census median income data (FRED API) and classified into High/Medium/Low income tiers.' },
+    { label: 'Hive Table Schema (ORC Optimized)', sql: `-- Table created by optimize_table.py
+CREATE TABLE itineraries_orc (
+    flightDate       STRING,
+    searchDate       STRING,
+    destinationAirport STRING,
+    travelDuration   STRING,
+    isBasicEconomy   BOOLEAN,
+    isRefundable     BOOLEAN,
+    isNonStop        BOOLEAN,
+    baseFare         DOUBLE,
+    totalFare        DOUBLE,
+    seatsRemaining   INT,
+    totalTravelDistance DOUBLE
+) PARTITIONED BY (startingAirport STRING)
+STORED AS ORC
+TBLPROPERTIES ("orc.compress"="SNAPPY");`, note: 'ORC columnar format with Snappy compression — 5-10x faster than raw CSV external tables on HDFS.' },
+  ],
+  brand: [
+    { label: 'Airline Competition on Routes', sql: `-- Executed via spark.sql() on Hive warehouse
+SELECT segmentsAirlineName            AS airline,
+       ROUND(AVG(totalFare), 2)       AS avgFare,
+       ROUND(MIN(totalFare), 2)       AS minFare,
+       ROUND(MAX(totalFare), 2)       AS maxFare,
+       ROUND(AVG(CASE WHEN isNonStop THEN 1.0 ELSE 0.0 END)*100, 1) AS nonstopPct,
+       COUNT(*)                        AS listings
+FROM   itineraries_orc
+WHERE  startingAirport = '{origin}'
+  AND  destinationAirport = '{dest}'
+GROUP BY segmentsAirlineName
+ORDER BY avgFare DESC;`, note: 'Cross-referenced with DOT Airline_Delay_Cause CSV (loaded into Hive) for on-time performance correlation.' },
+    { label: 'DOT Delay Data (External Hive Table)', sql: `-- External table pointing to HDFS CSV
+CREATE EXTERNAL TABLE airline_delay_cause (
+    year INT, month INT,
+    carrier STRING, carrier_name STRING,
+    airport STRING, airport_name STRING,
+    arr_flights DOUBLE, arr_del15 DOUBLE,
+    carrier_ct DOUBLE, weather_ct DOUBLE,
+    nas_ct DOUBLE, security_ct DOUBLE,
+    late_aircraft_ct DOUBLE, arr_cancelled DOUBLE,
+    arr_diverted DOUBLE, arr_delay DOUBLE
+) ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+STORED AS TEXTFILE
+LOCATION '/user/hive/warehouse/airline_delay_cause';`, note: 'Raw BTS data stored on HDFS, queried via Hive external table.' },
+  ],
+  rail: [
+    { label: 'Short-Haul Route Pricing Analysis', sql: `-- Executed via spark.sql() — Rail vs No-Rail comparison
+SELECT startingAirport, destinationAirport,
+       ROUND(AVG(totalFare), 2) AS avgFare,
+       ROUND(AVG(totalTravelDistance), 0) AS avgDistance,
+       ROUND(AVG(totalFare / totalTravelDistance), 4) AS pricePerMile,
+       COUNT(*) AS flightCount
+FROM   itineraries_orc
+WHERE  totalTravelDistance BETWEEN 100 AND 500
+  AND  totalTravelDistance > 0
+GROUP BY startingAirport, destinationAirport
+HAVING COUNT(*) >= 10
+ORDER BY pricePerMile;`, note: 'Routes classified as "rail-covered" (NE Corridor pairs like BOS↔DCA) vs "rail-vacuum" using Amtrak station API data.' },
+    { label: 'Amtrak Stations (External API)', engine: 'Python + REST API', sql: `# Amtrak real-time station data
+GET https://amtrak-api.marcmap.app/get-stations
+# Returns JSON array of active stations with
+# lat/lon coordinates for NE Corridor matching`, note: 'Station locations matched against airport coordinates to identify rail-competitive routes.' },
+  ],
+  ghost: [
+    { label: 'Price Anomaly Detection', sql: `-- Executed via spark.sql() — Ghost fare detection
+SELECT startingAirport, destinationAirport, flightDate,
+       ROUND(MIN(totalFare), 2) AS minFare,
+       ROUND(MAX(totalFare), 2) AS maxFare,
+       ROUND(MAX(totalFare) / MIN(totalFare), 1) AS priceRatio,
+       COUNT(DISTINCT searchDate) AS searchDates,
+       COUNT(*) AS listings
+FROM   itineraries_orc
+WHERE  totalFare > 0
+GROUP BY startingAirport, destinationAirport, flightDate
+HAVING MAX(totalFare) / MIN(totalFare) > 3
+ORDER BY priceRatio DESC
+LIMIT 100;`, note: 'Identifies route-date combos where max fare exceeds 3x the minimum — potential ghost fares or algorithmic price manipulation.' },
+    { label: 'Reddit Consumer Reports', engine: 'Python + Reddit API', sql: `# Reddit search for ghost fare complaints
+GET https://www.reddit.com/r/travel/search.json
+  ?q=ghost+fare+OR+phantom+fare+OR+bait+switch+airline
+  &sort=relevance&limit=100&t=all`, note: 'Consumer complaints cross-referenced with detected anomalies to validate findings.' },
+  ],
+};
 
 function SectionHeader({ num, title, subtitle, color, icon: Icon, source, sourceUrl }) {
   return (
@@ -195,6 +339,7 @@ function DataEnrichment() {
     return (<div>
       <SectionHeader num="I" title="Severe Weather & Capacity Contraction Premium" subtitle="Analyzing how extreme weather events at hub airports drive fare increases through capacity contraction and passenger redistribution to multi-stop routes."
         color="#3b82f6" icon={CloudRain} source="Open-Meteo Historical Weather (2022)" sourceUrl="https://open-meteo.com/en/docs/historical-weather-api" />
+      <QueryViewer queries={QUERIES.weather} />
       <div className="enr-controls">
         <label>Hub Airport:</label>
         <select value={weatherAirport} onChange={e => { setWeatherAirport(e.target.value); loadTab('weather', e.target.value); }}>
@@ -267,6 +412,7 @@ function DataEnrichment() {
     return (<div>
       <SectionHeader num="II" title="Geographical Wealth & Purchasing Power Discrimination" subtitle="Investigating whether airlines systematically charge higher per-mile fares from affluent metropolitan areas, exploiting lower price sensitivity of wealthier passengers."
         color="#10b981" icon={DollarSign} source="US Census Bureau / FRED (2022 ACS)" sourceUrl="https://fred.stlouisfed.org/" />
+      <QueryViewer queries={QUERIES.wealth} />
 
       {tiers.length >= 2 && (
         <div className="enr-metrics-row">
@@ -319,6 +465,7 @@ function DataEnrichment() {
     return (<div>
       <SectionHeader num="III" title="Brand Markup & Service Quality Correlation" subtitle="Examining whether airlines with superior on-time performance and service quality can sustain premium pricing on competitive routes through brand reputation alone."
         color="#f59e0b" icon={Award} source="DOT Airline_Delay_Cause (2022 BTS)" sourceUrl="https://www.bts.gov/topics/airlines-and-airports/understanding-reporting-causes-flight-delays-and-cancellations" />
+      <QueryViewer queries={QUERIES.brand} />
 
       {comps.map((c, ci) => {
         const airlines = c.airlines || [];
@@ -367,6 +514,7 @@ function DataEnrichment() {
     return (<div>
       <SectionHeader num="IV" title="Intermodal Competition: Rail Price Ceiling Effect" subtitle="Testing whether Amtrak rail competition on Northeast Corridor routes creates a price ceiling that forces airlines to lower short-haul fares compared to routes without rail alternatives."
         color="#8b5cf6" icon={Train} source={`Amtrak Stations API (${d.amtrakStations || 0} stations)`} sourceUrl="https://amtrak-api.marcmap.app/get-stations" />
+      <QueryViewer queries={QUERIES.rail} />
 
       <div className="enr-metrics-row">
         <MetricCard icon={<TrainFront size={24} />} label="Rail-Covered Routes" value={`$${summary.railCovered?.avgPricePerMile || '—'}/mi`} sub={`${summary.railCovered?.count || 0} NE Corridor routes`} color="#8b5cf6" />
@@ -421,6 +569,7 @@ function DataEnrichment() {
     return (<div>
       <SectionHeader num="V" title="Ghost Fare & Price Manipulation Monitoring" subtitle="Detecting potential pricing anomalies where the same route on the same date shows extreme fare variance (>3x), suggesting unbookable 'ghost fares' or algorithmic price manipulation."
         color="#ef4444" icon={Ghost} source="Reddit r/travel Consumer Reports" sourceUrl="https://www.reddit.com/r/travel/search.json?q=ghost%20fare&limit=100" />
+      <QueryViewer queries={QUERIES.ghost} />
 
       <div className="enr-metrics-row">
         <MetricCard icon={<Search size={24} />} label="Anomalies Detected" value={anomalies.length} sub="Route-date combos with >3x price ratio" color="#ef4444" />
@@ -603,6 +752,20 @@ function DataEnrichment() {
         .enr-err { color: #fca5a5; }
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        /* Query Viewer */
+        .enr-query-wrap { margin-bottom: 1.5rem; }
+        .enr-query-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; background: linear-gradient(135deg, rgba(139,92,246,0.12), rgba(59,130,246,0.08)); border: 1px solid rgba(139,92,246,0.25); border-radius: 10px; color: #a78bfa; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; font-family: inherit; }
+        .enr-query-toggle:hover { background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(59,130,246,0.14)); border-color: rgba(139,92,246,0.4); color: #c4b5fd; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(139,92,246,0.15); }
+        .enr-query-panel { margin-top: 12px; display: flex; flex-direction: column; gap: 12px; animation: enrFadeIn 0.3s ease; }
+        @keyframes enrFadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+        .enr-query-block { background: rgba(0,0,0,0.35); border: 1px solid rgba(139,92,246,0.15); border-radius: 12px; overflow: hidden; }
+        .enr-query-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: rgba(139,92,246,0.08); border-bottom: 1px solid rgba(139,92,246,0.12); }
+        .enr-query-label { font-size: 12.5px; font-weight: 700; color: #c4b5fd; flex: 1; }
+        .enr-query-engine { font-size: 10.5px; font-weight: 600; color: rgba(110,198,255,0.7); background: rgba(110,198,255,0.08); padding: 3px 10px; border-radius: 8px; border: 1px solid rgba(110,198,255,0.15); white-space: nowrap; }
+        .enr-query-code { margin: 0; padding: 14px 16px; font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 12px; line-height: 1.65; color: #e2e8f0; overflow-x: auto; white-space: pre; tab-size: 2; }
+        .enr-query-code code { color: #93c5fd; }
+        .enr-query-note { margin: 0; padding: 10px 14px; font-size: 11.5px; color: rgba(200,216,232,0.5); background: rgba(139,92,246,0.04); border-top: 1px solid rgba(139,92,246,0.08); line-height: 1.5; font-style: italic; }
       `}</style>
     </div>
   );
