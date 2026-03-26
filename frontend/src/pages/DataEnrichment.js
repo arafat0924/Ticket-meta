@@ -498,7 +498,7 @@ function DataEnrichment() {
       </div>
       <div className="enr-content">{renderContent()}</div>
       <style>{`
-        .enr-page { max-width: 1680px; margin: 0 auto; padding: 100px 2.5rem 2rem; position: relative; z-index: 1; }
+        .enr-page { max-width: 1440px; margin: 0 auto; padding: 100px 2rem 2rem; position: relative; z-index: 1; }
         .enr-page::before { content: ''; position: fixed; inset: 0; background: url('/bg_enrch.png') center/cover no-repeat; opacity: 0.5; z-index: -2; pointer-events: none; }
         .enr-page::after { content: ''; position: fixed; inset: 0; background: linear-gradient(180deg, rgba(11,26,46,0.45) 0%, rgba(11,26,46,0.6) 40%, rgba(11,26,46,0.78) 100%); z-index: -1; pointer-events: none; }
         .enr-header { text-align: center; margin-bottom: 3rem; padding: 20px 0 0; }
@@ -512,12 +512,12 @@ function DataEnrichment() {
         .enr-content { background: rgba(11,26,46,0.55); backdrop-filter: blur(20px) saturate(150%); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 2rem; box-shadow: 0 8px 32px rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.04) inset; }
 
         /* Section Headers */
-        .enr-section-header { margin-bottom: 1.5rem; }
-        .enr-section-top { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 12px; }
-        .enr-section-num { font-size: 1.1rem; font-weight: 800; min-width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; border-radius: 12px; font-family: 'Georgia', serif; }
-        .enr-section-title { font-size: 1.35rem; font-weight: 800; margin: 0 0 6px; letter-spacing: -0.3px; }
-        .enr-section-subtitle { color: rgba(200,216,232,0.5); font-size: 14px; line-height: 1.6; margin: 0; max-width: 800px; }
-        .enr-section-meta { display: flex; gap: 12px; flex-wrap: wrap; }
+        .enr-section-header { margin-bottom: 1.5rem; text-align: center; }
+        .enr-section-top { display: flex; gap: 14px; align-items: center; justify-content: center; margin-bottom: 12px; }
+        .enr-section-num { font-size: 1rem; font-weight: 800; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 10px; font-family: 'Georgia', serif; }
+        .enr-section-title { font-size: 1.15rem; font-weight: 800; margin: 0 0 4px; letter-spacing: -0.3px; }
+        .enr-section-subtitle { color: rgba(200,216,232,0.5); font-size: 13px; line-height: 1.6; margin: 0 auto; max-width: 700px; }
+        .enr-section-meta { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
         .enr-section-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; font-size: 12px; color: rgba(200,216,232,0.5); }
         .enr-section-badge a { color: #6ec6ff; text-decoration: none; }
         .enr-section-badge a:hover { text-decoration: underline; }
@@ -531,12 +531,12 @@ function DataEnrichment() {
 
         /* Metrics Row */
         .enr-metrics-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 2rem; }
-        .enr-metric { display: flex; gap: 16px; align-items: center; padding: 22px 20px; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; backdrop-filter: blur(14px) saturate(140%); transition: all 0.3s ease; position: relative; overflow: hidden; }
+        .enr-metric { display: flex; gap: 12px; align-items: center; padding: 16px 14px; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; backdrop-filter: blur(14px) saturate(140%); transition: all 0.3s ease; position: relative; overflow: hidden; }
         .enr-metric::after { content: ''; position: absolute; top: 0; right: 0; width: 80px; height: 80px; border-radius: 50%; opacity: 0.04; pointer-events: none; }
         .enr-metric:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.25); border-color: rgba(255,255,255,0.12); }
-        .enr-metric-icon { font-size: 1.6rem; min-width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; border-radius: 14px; flex-shrink: 0; }
-        .enr-metric-value { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.5px; line-height: 1.2; }
-        .enr-metric-label { font-size: 11.5px; font-weight: 700; color: rgba(200,216,232,0.55); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 4px; }
+        .enr-metric-icon { font-size: 1.3rem; min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 12px; flex-shrink: 0; }
+        .enr-metric-value { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.5px; line-height: 1.2; }
+        .enr-metric-label { font-size: 10.5px; font-weight: 700; color: rgba(200,216,232,0.55); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 3px; }
         .enr-metric-sub { font-size: 11px; color: rgba(200,216,232,0.35); margin-top: 4px; line-height: 1.4; }
 
         /* Compare Bar Chart */
