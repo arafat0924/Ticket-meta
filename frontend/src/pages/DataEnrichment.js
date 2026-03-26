@@ -575,7 +575,7 @@ function DataEnrichment() {
         /* Tables - Professional */
         .enr-table-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06); }
         .enr-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-        .enr-table th { background: linear-gradient(180deg, rgba(245,166,35,0.12), rgba(245,166,35,0.06)); color: rgba(245,166,35,0.8); padding: 0.65rem 0.7rem; text-align: left; position: sticky; top: 0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 2px solid rgba(245,166,35,0.15); z-index: 2; }
+        .enr-table th { background: #0d1f35; background-image: linear-gradient(180deg, rgba(245,166,35,0.15), rgba(245,166,35,0.08)); color: rgba(245,166,35,0.85); padding: 0.65rem 0.7rem; text-align: left; position: sticky; top: 0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 2px solid rgba(245,166,35,0.2); z-index: 5; }
         .enr-table td { padding: 0.55rem 0.7rem; border-bottom: 1px solid rgba(255,255,255,0.04); color: rgba(200,216,232,0.75); font-variant-numeric: tabular-nums; }
         .enr-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
         .enr-table tbody tr:nth-child(odd) { background: rgba(0,0,0,0.08); }
