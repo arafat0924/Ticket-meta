@@ -933,6 +933,21 @@ RAIL_PAIRS = {
 # ---------------------------------------------------------------------------
 # I. Severe Weather & Capacity Contraction Premium
 # ---------------------------------------------------------------------------
+
+# WMO Weather Code descriptions
+WMO_CODES = {
+    0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
+    45: "Fog", 48: "Depositing rime fog",
+    51: "Light drizzle", 53: "Moderate drizzle", 55: "Dense drizzle",
+    56: "Freezing drizzle (light)", 57: "Freezing drizzle (dense)",
+    61: "Slight rain", 63: "Moderate rain", 65: "Heavy rain",
+    66: "Freezing rain (light)", 67: "Freezing rain (heavy)",
+    71: "Slight snowfall", 73: "Moderate snowfall", 75: "Heavy snowfall",
+    77: "Snow grains", 80: "Slight rain showers", 81: "Moderate rain showers",
+    82: "Violent rain showers", 85: "Slight snow showers", 86: "Heavy snow showers",
+    95: "Thunderstorm", 96: "Thunderstorm with slight hail", 99: "Thunderstorm with heavy hail",
+}
+
 @app.route("/api/enrichment/weather")
 def enrichment_weather():
     airport = request.args.get("airport", "ATL").upper()
@@ -954,30 +969,45 @@ def enrichment_weather():
         return {"airport": airport, "dailyData": [clean_row(r) for r in rows], "query": sql.strip()}
     try:
         result = cached_query(f"weather_{airport}", _query)
-        # Fetch NOAA weather
+        # Determine date range from internal data to fetch matching historical weather
+        daily_data = result.get("dailyData", [])
         weather = {}
         coords = AIRPORT_COORDS.get(airport)
-        if coords:
+        if coords and daily_data:
             try:
-                pts = ext_requests.get(f"https://api.weather.gov/points/{coords[0]},{coords[1]}",
-                                       headers={"User-Agent":"SkyQuery/1.0"}, timeout=10).json()
-                station_url = pts.get("properties",{}).get("observationStations","")
-                if station_url:
-                    stations = ext_requests.get(station_url, headers={"User-Agent":"SkyQuery/1.0"}, timeout=10).json()
-                    station_id = stations.get("features",[{}])[0].get("properties",{}).get("stationIdentifier","")
-                    if station_id:
-                        obs = ext_requests.get(f"https://api.weather.gov/stations/{station_id}/observations?limit=200",
-                                               headers={"User-Agent":"SkyQuery/1.0"}, timeout=15).json()
-                        for f in obs.get("features",[]):
-                            p = f.get("properties",{})
-                            ts = (p.get("timestamp") or "")[:10]
-                            if ts:
-                                weather[ts] = {
-                                    "temp": p.get("temperature",{}).get("value"),
-                                    "wind": p.get("windSpeed",{}).get("value"),
-                                    "precip": p.get("precipitationLastHour",{}).get("value"),
-                                    "desc": p.get("textDescription",""),
-                                }
+                dates = [d.get("flightDate","") for d in daily_data if d.get("flightDate")]
+                dates = sorted([d for d in dates if d and len(d) >= 10])
+                if dates:
+                    start_date = dates[0][:10]
+                    end_date = dates[-1][:10]
+                    # Use Open-Meteo Archive API for historical weather matching internal data dates
+                    meteo_url = (
+                        f"https://archive-api.open-meteo.com/v1/archive"
+                        f"?latitude={coords[0]}&longitude={coords[1]}"
+                        f"&start_date={start_date}&end_date={end_date}"
+                        f"&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,"
+                        f"windspeed_10m_max,weathercode"
+                        f"&temperature_unit=celsius&windspeed_unit=ms&timezone=auto"
+                    )
+                    meteo_resp = ext_requests.get(meteo_url, timeout=20).json()
+                    daily_w = meteo_resp.get("daily", {})
+                    w_dates = daily_w.get("time", [])
+                    w_tmax = daily_w.get("temperature_2m_max", [])
+                    w_tmin = daily_w.get("temperature_2m_min", [])
+                    w_precip = daily_w.get("precipitation_sum", [])
+                    w_wind = daily_w.get("windspeed_10m_max", [])
+                    w_code = daily_w.get("weathercode", [])
+                    for i, dt in enumerate(w_dates):
+                        temp_max = w_tmax[i] if i < len(w_tmax) else None
+                        temp_min = w_tmin[i] if i < len(w_tmin) else None
+                        avg_temp = round((temp_max + temp_min) / 2, 1) if temp_max is not None and temp_min is not None else None
+                        code = w_code[i] if i < len(w_code) else None
+                        weather[dt] = {
+                            "temp": avg_temp,
+                            "wind": w_wind[i] if i < len(w_wind) else None,
+                            "precip": w_precip[i] if i < len(w_precip) else None,
+                            "desc": WMO_CODES.get(code, "Unknown") if code is not None else "—",
+                        }
             except Exception as we:
                 weather = {"error": str(we)}
         result["weather"] = weather
