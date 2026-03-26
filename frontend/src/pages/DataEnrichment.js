@@ -339,7 +339,6 @@ function DataEnrichment() {
     return (<div>
       <SectionHeader num="I" title="Severe Weather & Capacity Contraction Premium" subtitle="Analyzing how extreme weather events at hub airports drive fare increases through capacity contraction and passenger redistribution to multi-stop routes."
         color="#3b82f6" icon={CloudRain} source="Open-Meteo Historical Weather (2022)" sourceUrl="https://open-meteo.com/en/docs/historical-weather-api" />
-      <QueryViewer queries={QUERIES.weather} />
       <div className="enr-controls">
         <label>Hub Airport:</label>
         <select value={weatherAirport} onChange={e => { setWeatherAirport(e.target.value); loadTab('weather', e.target.value); }}>
@@ -401,6 +400,7 @@ function DataEnrichment() {
         <div className="enr-finding-title"><TrendingUp size={18} /> Key Finding</div>
         <p>On severe weather days (precipitation &gt; 5mm or wind &gt; 10 m/s), average fares at <strong>{d.airport}</strong> are <strong style={{color: premium > 0 ? '#ef4444' : '#22c55e'}}>{premium > 0 ? '+' : ''}{premium.toFixed(1)}%</strong> {premium > 0 ? 'higher' : 'lower'} than clear weather days. {premium > 3 ? 'This confirms the weather premium hypothesis — airlines capitalize on weather-driven capacity contraction.' : 'The effect varies by airport and season.'}</p>
       </div>
+      <QueryViewer queries={QUERIES.weather} />
     </div>);
   };
 
@@ -412,8 +412,6 @@ function DataEnrichment() {
     return (<div>
       <SectionHeader num="II" title="Geographical Wealth & Purchasing Power Discrimination" subtitle="Investigating whether airlines systematically charge higher per-mile fares from affluent metropolitan areas, exploiting lower price sensitivity of wealthier passengers."
         color="#10b981" icon={DollarSign} source="US Census Bureau / FRED (2022 ACS)" sourceUrl="https://fred.stlouisfed.org/" />
-      <QueryViewer queries={QUERIES.wealth} />
-
       {tiers.length >= 2 && (
         <div className="enr-metrics-row">
           <MetricCard icon={<Landmark size={24} />} label="High-Income Hubs" value={`$${tiers.find(t=>t.tier==='High')?.avgPricePerMile || '—'}/mi`} sub={`${tiers.find(t=>t.tier==='High')?.airportCount || 0} airports (income ≥$90K)`} color="#ef4444" />
@@ -455,6 +453,7 @@ function DataEnrichment() {
         <div className="enr-finding-title"><TrendingUp size={18} /> Key Finding</div>
         <p>Airports in high-income metros pay <strong style={{color:'#ef4444'}}>${tiers.length >= 2 ? (tiers[0]?.avgPricePerMile - tiers[tiers.length-1]?.avgPricePerMile).toFixed(4) : '—'}/mile</strong> more on average than low-income metros — a <strong>{tiers.length >= 2 ? ((tiers[0]?.avgPricePerMile / tiers[tiers.length-1]?.avgPricePerMile - 1) * 100).toFixed(1) : '—'}%</strong> premium. This strongly suggests airlines engage in geographical purchasing power discrimination.</p>
       </div>
+      <QueryViewer queries={QUERIES.wealth} />
     </div>);
   };
 
@@ -465,8 +464,6 @@ function DataEnrichment() {
     return (<div>
       <SectionHeader num="III" title="Brand Markup & Service Quality Correlation" subtitle="Examining whether airlines with superior on-time performance and service quality can sustain premium pricing on competitive routes through brand reputation alone."
         color="#f59e0b" icon={Award} source="DOT Airline_Delay_Cause (2022 BTS)" sourceUrl="https://www.bts.gov/topics/airlines-and-airports/understanding-reporting-causes-flight-delays-and-cancellations" />
-      <QueryViewer queries={QUERIES.brand} />
-
       {comps.map((c, ci) => {
         const airlines = c.airlines || [];
         const maxFare = Math.max(...airlines.map(a => a.avgFare || 0));
@@ -500,6 +497,7 @@ function DataEnrichment() {
         <div className="enr-finding-title"><TrendingUp size={18} /> Key Finding</div>
         <p>On competitive routes, the most expensive airline charges up to <strong style={{color:'#f59e0b'}}>40-80% more</strong> than the cheapest carrier for the same route. Airlines with higher on-time performance (from 2022 DOT delay data) consistently maintain premium pricing, demonstrating that brand reputation creates measurable pricing power.</p>
       </div>
+      <QueryViewer queries={QUERIES.brand} />
     </div>);
   };
 
@@ -514,7 +512,6 @@ function DataEnrichment() {
     return (<div>
       <SectionHeader num="IV" title="Intermodal Competition: Rail Price Ceiling Effect" subtitle="Testing whether Amtrak rail competition on Northeast Corridor routes creates a price ceiling that forces airlines to lower short-haul fares compared to routes without rail alternatives."
         color="#8b5cf6" icon={Train} source={`Amtrak Stations API (${d.amtrakStations || 0} stations)`} sourceUrl="https://amtrak-api.marcmap.app/get-stations" />
-      <QueryViewer queries={QUERIES.rail} />
 
       <div className="enr-metrics-row">
         <MetricCard icon={<TrainFront size={24} />} label="Rail-Covered Routes" value={`$${summary.railCovered?.avgPricePerMile || '—'}/mi`} sub={`${summary.railCovered?.count || 0} NE Corridor routes`} color="#8b5cf6" />
@@ -555,6 +552,7 @@ function DataEnrichment() {
         <div className="enr-finding-title"><TrendingUp size={18} /> Key Finding</div>
         <p>On short-haul routes under 500 miles, rail-covered NE Corridor routes average <strong style={{color:'#22c55e'}}>${summary.railCovered?.avgPricePerMile}/mile</strong> compared to <strong style={{color:'#ef4444'}}>${summary.railVacuum?.avgPricePerMile}/mile</strong> on rail-vacuum routes — a <strong>{summary.priceCeilingEffect || '—'}%</strong> reduction confirming that intermodal competition creates a measurable price ceiling.</p>
       </div>
+      <QueryViewer queries={QUERIES.rail} />
     </div>);
   };
 
@@ -569,7 +567,6 @@ function DataEnrichment() {
     return (<div>
       <SectionHeader num="V" title="Ghost Fare & Price Manipulation Monitoring" subtitle="Detecting potential pricing anomalies where the same route on the same date shows extreme fare variance (>3x), suggesting unbookable 'ghost fares' or algorithmic price manipulation."
         color="#ef4444" icon={Ghost} source="Reddit r/travel Consumer Reports" sourceUrl="https://www.reddit.com/r/travel/search.json?q=ghost%20fare&limit=100" />
-      <QueryViewer queries={QUERIES.ghost} />
 
       <div className="enr-metrics-row">
         <MetricCard icon={<Search size={24} />} label="Anomalies Detected" value={anomalies.length} sub="Route-date combos with >3x price ratio" color="#ef4444" />
@@ -612,6 +609,7 @@ function DataEnrichment() {
         <div className="enr-finding-title"><TrendingUp size={18} /> Key Finding</div>
         <p><strong style={{color:'#ef4444'}}>{anomalies.length}</strong> route-date combinations show &gt;3x price variance, with <strong>{extreme.length}</strong> extreme cases exceeding 5x. Combined with <strong>{posts.length}</strong> Reddit consumer complaints about ghost fares, this provides evidence of systematic price manipulation in the 2022 flight data.</p>
       </div>
+      <QueryViewer queries={QUERIES.ghost} />
     </div>);
   };
 
