@@ -90,6 +90,24 @@ function Landing() {
 
   return (
     <div className="tl-landing">
+      {/* ===== NAVBAR ===== */}
+      <nav className="tl-nav">
+        <div className="tl-nav-inner">
+          <div className="tl-nav-logo" onClick={() => navigate('/')}>
+            <div className="tl-logo-icon"><Plane size={16} /></div>
+            <span className="tl-logo-text">Data Turbulence</span>
+          </div>
+          <div className="tl-nav-links">
+            <a href="#hero" className="tl-nav-link active"><Plane size={14} /> Home</a>
+            <span className="tl-nav-link" onClick={() => navigate('/flights')}><Search size={14} /> Flights</span>
+            <span className="tl-nav-link" onClick={() => navigate('/analytics')}><BarChart3 size={14} /> Analytics</span>
+            <span className="tl-nav-link" onClick={() => navigate('/flight-splicing')}><MapPin size={14} /> Splicing</span>
+            <span className="tl-nav-link" onClick={() => navigate('/chatbot')}><MessageSquare size={14} /> AI Chat</span>
+            <span className="tl-nav-link" onClick={() => navigate('/enrichment')}><Building2 size={14} /> Enrichment</span>
+          </div>
+        </div>
+      </nav>
+
       {/* ===== HERO SECTION ===== */}
       <section className="tl-hero" id="hero">
         <div className="tl-hero-bg" />
