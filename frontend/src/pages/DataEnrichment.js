@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { enrichmentWeather, enrichmentWealth, enrichmentBrand, enrichmentRail, enrichmentGhost } from '../api';
-import { CloudRain, DollarSign, Award, Train, Ghost, Loader2, AlertTriangle, ExternalLink, TrendingUp, BarChart3, Database, Globe } from 'lucide-react';
+import { CloudRain, DollarSign, Award, Train, Ghost, Loader2, AlertTriangle, ExternalLink, TrendingUp, BarChart3, Database, Globe, CloudLightning, Sun, ArrowUpRight, CalendarDays, Landmark, Home, Wallet, GitCompareArrows, TrainFront, Plane, TrendingDown, MapPin, Search, ShieldAlert, Activity, Smartphone } from 'lucide-react';
 
 const TABS = [
   { id: 'weather', label: 'Weather Impact', icon: CloudRain, color: '#3b82f6' },
@@ -204,10 +204,10 @@ function DataEnrichment() {
 
       {merged.length > 0 && (
         <div className="enr-metrics-row">
-          <MetricCard icon="🌧️" label="Stormy Days Avg Fare" value={`$${stormyAvg.toFixed(2)}`} sub={`${stormy.length} days with precip>5mm or wind>10m/s`} color="#ef4444" />
-          <MetricCard icon="☀️" label="Clear Days Avg Fare" value={`$${clearAvg.toFixed(2)}`} sub={`${clear.length} days with precip≤1mm & wind≤6m/s`} color="#22c55e" />
-          <MetricCard icon="📈" label="Weather Premium" value={`${premium > 0 ? '+' : ''}${premium.toFixed(1)}%`} sub="Fare increase on severe weather days" color={premium > 0 ? '#ef4444' : '#22c55e'} />
-          <MetricCard icon="📊" label="Dates Analyzed" value={daily.length} sub={`${weatherDates.length} weather records matched`} color="#3b82f6" />
+          <MetricCard icon={<CloudLightning size={24} />} label="Stormy Days Avg Fare" value={`$${stormyAvg.toFixed(2)}`} sub={`${stormy.length} days with precip>5mm or wind>10m/s`} color="#ef4444" />
+          <MetricCard icon={<Sun size={24} />} label="Clear Days Avg Fare" value={`$${clearAvg.toFixed(2)}`} sub={`${clear.length} days with precip≤1mm & wind≤6m/s`} color="#22c55e" />
+          <MetricCard icon={<ArrowUpRight size={24} />} label="Weather Premium" value={`${premium > 0 ? '+' : ''}${premium.toFixed(1)}%`} sub="Fare increase on severe weather days" color={premium > 0 ? '#ef4444' : '#22c55e'} />
+          <MetricCard icon={<CalendarDays size={24} />} label="Dates Analyzed" value={daily.length} sub={`${weatherDates.length} weather records matched`} color="#3b82f6" />
         </div>
       )}
 
@@ -215,13 +215,13 @@ function DataEnrichment() {
         <div className="enr-card" style={{marginBottom:'1.5rem'}}>
           <h4><BarChart3 size={16} style={{verticalAlign:-3}} /> Fare Comparison: Stormy vs Clear Weather Days</h4>
           <p className="enr-card-sub">Visual comparison of average fares on severe vs clear weather days at {d.airport}</p>
-          <MiniCompareBar label1="🌧️ Stormy Days" val1={stormyAvg} label2="☀️ Clear Days" val2={clearAvg} color1="#ef4444" color2="#22c55e" />
+          <MiniCompareBar label1="Stormy Days" val1={stormyAvg} label2="Clear Days" val2={clearAvg} color1="#ef4444" color2="#22c55e" />
         </div>
       )}
 
       <div className="enr-grid">
         <div className="enr-card">
-          <h4>📊 Internal Flight Data — {d.airport} (2022)</h4>
+          <h4><BarChart3 size={16} style={{verticalAlign:-3}} /> Internal Flight Data — {d.airport} (2022)</h4>
           <p className="enr-card-sub">Daily aggregated metrics from Expedia/Hive dataset</p>
           <div className="enr-table-wrap">
             <table className="enr-table"><thead><tr><th>Date</th><th>Avg Fare</th><th>Flights</th><th>Nonstop</th><th>Connecting</th><th>Avg Seats</th><th>Lead Days</th></tr></thead>
@@ -233,7 +233,7 @@ function DataEnrichment() {
           </div>
         </div>
         <div className="enr-card">
-          <h4>🌦️ Historical Weather Data — {d.airport} (2022)</h4>
+          <h4><CloudRain size={16} style={{verticalAlign:-3}} /> Historical Weather Data — {d.airport} (2022)</h4>
           <p className="enr-card-sub">Open-Meteo archive: temperature, wind, precipitation & conditions</p>
           {weather.error ? <p className="enr-err">{weather.error}</p> :
             weatherDates.length > 0 ? (
@@ -265,10 +265,10 @@ function DataEnrichment() {
 
       {tiers.length >= 2 && (
         <div className="enr-metrics-row">
-          <MetricCard icon="🏦" label="High-Income Hubs" value={`$${tiers.find(t=>t.tier==='High')?.avgPricePerMile || '—'}/mi`} sub={`${tiers.find(t=>t.tier==='High')?.airportCount || 0} airports (income ≥$90K)`} color="#ef4444" />
-          <MetricCard icon="🏠" label="Mid-Income Hubs" value={`$${tiers.find(t=>t.tier==='Medium')?.avgPricePerMile || '—'}/mi`} sub={`${tiers.find(t=>t.tier==='Medium')?.airportCount || 0} airports ($70K-$90K)`} color="#f5a623" />
-          <MetricCard icon="💵" label="Low-Income Hubs" value={`$${tiers.find(t=>t.tier==='Low')?.avgPricePerMile || '—'}/mi`} sub={`${tiers.find(t=>t.tier==='Low')?.airportCount || 0} airports (income <$70K)`} color="#22c55e" />
-          <MetricCard icon="📊" label="Price Gap" value={tiers.length >= 2 ? `$${(tiers[0]?.avgPricePerMile - tiers[tiers.length-1]?.avgPricePerMile).toFixed(4)}/mi` : '—'} sub="High vs Low income difference" color="#8b5cf6" />
+          <MetricCard icon={<Landmark size={24} />} label="High-Income Hubs" value={`$${tiers.find(t=>t.tier==='High')?.avgPricePerMile || '—'}/mi`} sub={`${tiers.find(t=>t.tier==='High')?.airportCount || 0} airports (income ≥$90K)`} color="#ef4444" />
+          <MetricCard icon={<Home size={24} />} label="Mid-Income Hubs" value={`$${tiers.find(t=>t.tier==='Medium')?.avgPricePerMile || '—'}/mi`} sub={`${tiers.find(t=>t.tier==='Medium')?.airportCount || 0} airports ($70K-$90K)`} color="#f5a623" />
+          <MetricCard icon={<Wallet size={24} />} label="Low-Income Hubs" value={`$${tiers.find(t=>t.tier==='Low')?.avgPricePerMile || '—'}/mi`} sub={`${tiers.find(t=>t.tier==='Low')?.airportCount || 0} airports (income <$70K)`} color="#22c55e" />
+          <MetricCard icon={<GitCompareArrows size={24} />} label="Price Gap" value={tiers.length >= 2 ? `$${(tiers[0]?.avgPricePerMile - tiers[tiers.length-1]?.avgPricePerMile).toFixed(4)}/mi` : '—'} sub="High vs Low income difference" color="#8b5cf6" />
         </div>
       )}
 
@@ -279,7 +279,7 @@ function DataEnrichment() {
           <HBarChart data={topN} labelKey="startingAirport" valueKey="avgPricePerMile" color="#10b981" prefix="$" />
         </div>
         <div className="enr-card">
-          <h4>📈 Tier Comparison</h4>
+          <h4><TrendingUp size={16} style={{verticalAlign:-3}} /> Tier Comparison</h4>
           <p className="enr-card-sub">Average metrics grouped by metro income tier</p>
           <table className="enr-table"><thead><tr><th>Tier</th><th>Airports</th><th>Avg $/Mile</th><th>Avg Fare</th></tr></thead>
           <tbody>{tiers.map((t, i) => (
@@ -291,7 +291,7 @@ function DataEnrichment() {
       </div>
 
       <div className="enr-card" style={{marginTop:'1rem'}}>
-        <h4>🏙️ Full Airport Analysis — 2022 Flight Data × Census Income Data</h4>
+        <h4><Globe size={16} style={{verticalAlign:-3}} /> Full Airport Analysis — 2022 Flight Data × Census Income Data</h4>
         <div className="enr-table-wrap"><table className="enr-table"><thead><tr><th>Airport</th><th>City</th><th>Median Income</th><th>Tier</th><th>$/Mile</th><th>Avg Fare</th><th>Flights</th></tr></thead>
         <tbody>{airports.map((a, i) => (
           <tr key={i}><td><strong>{a.startingAirport}</strong></td><td>{a.city}</td><td>${a.medianIncome?.toLocaleString() ?? '—'}</td>
@@ -323,7 +323,7 @@ function DataEnrichment() {
         return (
           <div key={ci} className="enr-card" style={{ marginTop: '1rem' }}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8}}>
-              <h4>✈️ Route: {c.route} — {airlines.length} Airlines Competing</h4>
+              <h4><Plane size={16} style={{verticalAlign:-3}} /> Route: {c.route} — {airlines.length} Airlines Competing</h4>
               <span className="enr-badge enr-badge-high" style={{fontSize:'0.8rem'}}>Brand Markup: {markup}%</span>
             </div>
             <div className="enr-grid" style={{marginTop:'0.75rem'}}>
@@ -356,18 +356,18 @@ function DataEnrichment() {
     const d = data.rail; if (!d) return null;
     const summary = d.summary || {}, rc = d.railCovered || [], rv = d.railVacuum || [];
     const compData = [
-      { category: '🚆 Rail Covered', value: summary.railCovered?.avgPricePerMile || 0 },
-      { category: '✈️ No Rail', value: summary.railVacuum?.avgPricePerMile || 0 },
+      { category: 'Rail Covered', value: summary.railCovered?.avgPricePerMile || 0 },
+      { category: 'No Rail', value: summary.railVacuum?.avgPricePerMile || 0 },
     ];
     return (<div>
       <SectionHeader num="IV" title="Intermodal Competition: Rail Price Ceiling Effect" subtitle="Testing whether Amtrak rail competition on Northeast Corridor routes creates a price ceiling that forces airlines to lower short-haul fares compared to routes without rail alternatives."
         color="#8b5cf6" icon={Train} source={`Amtrak Stations API (${d.amtrakStations || 0} stations)`} sourceUrl="https://amtrak-api.marcmap.app/get-stations" />
 
       <div className="enr-metrics-row">
-        <MetricCard icon="🚆" label="Rail-Covered Routes" value={`$${summary.railCovered?.avgPricePerMile || '—'}/mi`} sub={`${summary.railCovered?.count || 0} NE Corridor routes`} color="#8b5cf6" />
-        <MetricCard icon="✈️" label="Rail-Vacuum Routes" value={`$${summary.railVacuum?.avgPricePerMile || '—'}/mi`} sub={`${summary.railVacuum?.count || 0} routes without rail`} color="#ef4444" />
-        <MetricCard icon="📉" label="Price Ceiling Effect" value={summary.priceCeilingEffect ? `−${summary.priceCeilingEffect}%` : '—'} sub="Fare reduction from rail competition" color="#22c55e" />
-        <MetricCard icon="🚉" label="Amtrak Stations" value={d.amtrakStations || 0} sub="Active stations in network" color="#3b82f6" />
+        <MetricCard icon={<TrainFront size={24} />} label="Rail-Covered Routes" value={`$${summary.railCovered?.avgPricePerMile || '—'}/mi`} sub={`${summary.railCovered?.count || 0} NE Corridor routes`} color="#8b5cf6" />
+        <MetricCard icon={<Plane size={24} />} label="Rail-Vacuum Routes" value={`$${summary.railVacuum?.avgPricePerMile || '—'}/mi`} sub={`${summary.railVacuum?.count || 0} routes without rail`} color="#ef4444" />
+        <MetricCard icon={<TrendingDown size={24} />} label="Price Ceiling Effect" value={summary.priceCeilingEffect ? `−${summary.priceCeilingEffect}%` : '—'} sub="Fare reduction from rail competition" color="#22c55e" />
+        <MetricCard icon={<MapPin size={24} />} label="Amtrak Stations" value={d.amtrakStations || 0} sub="Active stations in network" color="#3b82f6" />
       </div>
 
       <div className="enr-grid">
@@ -382,7 +382,7 @@ function DataEnrichment() {
           </div>
         </div>
         <div className="enr-card">
-          <h4>🚆 Rail-Covered Routes (NE Corridor)</h4>
+          <h4><TrainFront size={16} style={{verticalAlign:-3}} /> Rail-Covered Routes (NE Corridor)</h4>
           <div className="enr-table-wrap"><table className="enr-table"><thead><tr><th>Route</th><th>Avg Fare</th><th>Distance</th><th>$/Mile</th><th>Flights</th></tr></thead>
           <tbody>{rc.slice(0, 12).map((r, i) => (
             <tr key={i}><td><strong>{r.startingAirport}→{r.destinationAirport}</strong></td><td>${r.avgFare}</td><td>{r.avgDistance} mi</td><td className="enr-bold">${r.pricePerMile}</td><td>{r.flightCount}</td></tr>
@@ -391,7 +391,7 @@ function DataEnrichment() {
       </div>
 
       <div className="enr-card" style={{marginTop:'1rem'}}>
-        <h4>✈️ Rail-Vacuum Routes (No Train Alternative)</h4>
+        <h4><Plane size={16} style={{verticalAlign:-3}} /> Rail-Vacuum Routes (No Train Alternative)</h4>
         <div className="enr-table-wrap"><table className="enr-table"><thead><tr><th>Route</th><th>Avg Fare</th><th>Distance</th><th>$/Mile</th><th>Flights</th></tr></thead>
         <tbody>{rv.slice(0, 12).map((r, i) => (
           <tr key={i}><td><strong>{r.startingAirport}→{r.destinationAirport}</strong></td><td>${r.avgFare}</td><td>{r.avgDistance} mi</td><td className="enr-bold">${r.pricePerMile}</td><td>{r.flightCount}</td></tr>
@@ -418,10 +418,10 @@ function DataEnrichment() {
         color="#ef4444" icon={Ghost} source="Reddit r/travel Consumer Reports" sourceUrl="https://www.reddit.com/r/travel/search.json?q=ghost%20fare&limit=100" />
 
       <div className="enr-metrics-row">
-        <MetricCard icon="🔍" label="Anomalies Detected" value={anomalies.length} sub="Route-date combos with >3x price ratio" color="#ef4444" />
-        <MetricCard icon="⚠️" label="Extreme Cases (>5x)" value={extreme.length} sub="Likely ghost fares or manipulation" color="#f59e0b" />
-        <MetricCard icon="📊" label="Avg Price Ratio" value={`${avgRatio.toFixed(1)}x`} sub="Average max/min fare ratio" color="#8b5cf6" />
-        <MetricCard icon="📱" label="Reddit Reports" value={posts.length} sub="Consumer complaints found" color="#3b82f6" />
+        <MetricCard icon={<Search size={24} />} label="Anomalies Detected" value={anomalies.length} sub="Route-date combos with >3x price ratio" color="#ef4444" />
+        <MetricCard icon={<ShieldAlert size={24} />} label="Extreme Cases (>5x)" value={extreme.length} sub="Likely ghost fares or manipulation" color="#f59e0b" />
+        <MetricCard icon={<Activity size={24} />} label="Avg Price Ratio" value={`${avgRatio.toFixed(1)}x`} sub="Average max/min fare ratio" color="#8b5cf6" />
+        <MetricCard icon={<Smartphone size={24} />} label="Reddit Reports" value={posts.length} sub="Consumer complaints found" color="#3b82f6" />
       </div>
 
       <div className="enr-grid">
@@ -431,7 +431,7 @@ function DataEnrichment() {
           <HBarChart data={topAnomalies} labelKey="route" valueKey="ratio" color="#ef4444" suffix="x" />
         </div>
         <div className="enr-card">
-          <h4>📱 Consumer Complaints ({posts.length} posts)</h4>
+          <h4><Smartphone size={16} style={{verticalAlign:-3}} /> Consumer Complaints ({posts.length} posts)</h4>
           <p className="enr-card-sub">Reddit r/travel reports matching ghost fare patterns</p>
           {posts.length > 0 ? (
             <div className="enr-posts">{posts.slice(0, 10).map((p, i) => (
@@ -444,7 +444,7 @@ function DataEnrichment() {
       </div>
 
       <div className="enr-card" style={{marginTop:'1rem'}}>
-        <h4>🔍 Detailed Anomaly Table — 2022 Flight Data</h4>
+        <h4><Search size={16} style={{verticalAlign:-3}} /> Detailed Anomaly Table — 2022 Flight Data</h4>
         <div className="enr-table-wrap"><table className="enr-table"><thead><tr><th>Route</th><th>Date</th><th>Min Fare</th><th>Max Fare</th><th>Ratio</th><th>Search Dates</th><th>Listings</th></tr></thead>
         <tbody>{anomalies.slice(0, 20).map((a, i) => (
           <tr key={i} className={a.priceRatio > 5 ? 'enr-danger' : ''}>
