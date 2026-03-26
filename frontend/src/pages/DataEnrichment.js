@@ -632,15 +632,15 @@ function DataEnrichment() {
         .enr-particles { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
         .enr-particle { position: absolute; left: var(--x); top: var(--y); width: var(--size); height: var(--size); border-radius: 50%; background: var(--color); opacity: 0; animation: enrFloat var(--dur) var(--del) ease-in-out infinite; box-shadow: 0 0 8px var(--color); }
         @keyframes enrFloat { 0%,100%{opacity:0;transform:translateY(0) scale(0.5)} 25%{opacity:var(--o);transform:translateY(-30px) translateX(15px) scale(1)} 50%{opacity:var(--o);transform:translateY(-60px) translateX(-10px) scale(1.1)} 75%{opacity:var(--o);transform:translateY(-30px) translateX(20px) scale(0.9)} }
-        .enr-header { text-align: center; margin-bottom: 3rem; padding: 20px 0 0; }
-        .enr-header-badge { display: inline-block; padding: 8px 22px; background: rgba(245,166,35,0.08); border: 1px solid rgba(245,166,35,0.2); border-radius: 24px; font-size: 13px; font-weight: 600; color: #f5a623; letter-spacing: 0.5px; margin-bottom: 24px; }
-        .enr-header h1 { font-family: 'Manrope', sans-serif; font-size: clamp(2.2rem, 4vw, 3rem); font-weight: 800; color: #ffffff; letter-spacing: -0.5px; margin-bottom: 18px; }
-        .enr-header p { color: rgba(200,216,232,0.5); font-size: 16px; max-width: 600px; margin: 0 auto; line-height: 1.7; }
+        .enr-header { text-align: center; margin-bottom: 2.5rem; padding: 30px 30px 24px; background: rgba(5,15,30,0.65); backdrop-filter: blur(24px) saturate(140%); border-radius: 20px; border: 1px solid rgba(255,255,255,0.06); box-shadow: 0 8px 40px rgba(0,0,0,0.4); }
+        .enr-header-badge { display: inline-block; padding: 8px 22px; background: rgba(245,166,35,0.15); border: 1px solid rgba(245,166,35,0.35); border-radius: 24px; font-size: 13px; font-weight: 600; color: #f5a623; letter-spacing: 0.5px; margin-bottom: 20px; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+        .enr-header h1 { font-family: 'Manrope', sans-serif; font-size: clamp(2.2rem, 4vw, 3rem); font-weight: 800; color: #ffffff; letter-spacing: -0.5px; margin-bottom: 14px; text-shadow: 0 2px 12px rgba(0,0,0,0.7), 0 0 40px rgba(245,166,35,0.15); }
+        .enr-header p { color: rgba(200,216,232,0.75); font-size: 16px; max-width: 600px; margin: 0 auto; line-height: 1.7; text-shadow: 0 1px 6px rgba(0,0,0,0.5); }
         .enr-tabs { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 2.5rem; }
-        .enr-tab { display: flex; align-items: center; gap: 8px; padding: 12px 24px; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; background: rgba(11,26,46,0.6); color: rgba(200,216,232,0.55); cursor: pointer; font-size: 14.5px; font-weight: 500; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); backdrop-filter: blur(16px) saturate(150%); }
-        .enr-tab:hover { border-color: rgba(245,166,35,0.25); color: #ffffff; background: rgba(11,26,46,0.8); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
-        .enr-tab.active { background: rgba(11,26,46,0.9); font-weight: 700; box-shadow: 0 4px 20px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.06) inset, 0 0 15px rgba(245,166,35,0.08); }
-        .enr-content { background: rgba(11,26,46,0.55); backdrop-filter: blur(20px) saturate(150%); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 2rem; box-shadow: 0 8px 32px rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.04) inset; }
+        .enr-tab { display: flex; align-items: center; gap: 8px; padding: 12px 24px; border: 1px solid rgba(255,255,255,0.12); border-radius: 14px; background: rgba(5,15,30,0.75); color: rgba(200,216,232,0.7); cursor: pointer; font-size: 14.5px; font-weight: 500; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); backdrop-filter: blur(20px) saturate(150%); text-shadow: 0 1px 4px rgba(0,0,0,0.4); box-shadow: 0 2px 12px rgba(0,0,0,0.3); }
+        .enr-tab:hover { border-color: rgba(245,166,35,0.3); color: #ffffff; background: rgba(5,15,30,0.85); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.35); }
+        .enr-tab.active { background: rgba(5,15,30,0.92); font-weight: 700; color: #ffffff; box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08) inset, 0 0 20px rgba(245,166,35,0.12); }
+        .enr-content { background: rgba(5,15,30,0.78); backdrop-filter: blur(24px) saturate(150%); border: 1px solid rgba(255,255,255,0.1); border-radius: 18px; padding: 2rem; box-shadow: 0 8px 40px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.04) inset; }
 
         /* Section Headers */
         .enr-section-header { margin-bottom: 1.5rem; text-align: center; }
