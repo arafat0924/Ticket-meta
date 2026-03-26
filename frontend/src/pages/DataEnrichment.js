@@ -752,10 +752,10 @@ function DataEnrichment() {
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
         /* Query Viewer */
-        .enr-query-wrap { margin-bottom: 1.5rem; }
+        .enr-query-wrap { margin-top: 2.5rem; margin-bottom: 1.5rem; text-align: center; }
         .enr-query-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; background: linear-gradient(135deg, rgba(139,92,246,0.12), rgba(59,130,246,0.08)); border: 1px solid rgba(139,92,246,0.25); border-radius: 10px; color: #a78bfa; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; font-family: inherit; }
         .enr-query-toggle:hover { background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(59,130,246,0.14)); border-color: rgba(139,92,246,0.4); color: #c4b5fd; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(139,92,246,0.15); }
-        .enr-query-panel { margin-top: 12px; display: flex; flex-direction: column; gap: 12px; animation: enrFadeIn 0.3s ease; }
+        .enr-query-panel { margin-top: 12px; display: flex; flex-direction: column; gap: 12px; animation: enrFadeIn 0.3s ease; text-align: left; }
         @keyframes enrFadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
         .enr-query-block { background: rgba(0,0,0,0.35); border: 1px solid rgba(139,92,246,0.15); border-radius: 12px; overflow: hidden; }
         .enr-query-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: rgba(139,92,246,0.08); border-bottom: 1px solid rgba(139,92,246,0.12); }
