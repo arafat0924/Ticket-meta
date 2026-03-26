@@ -203,19 +203,24 @@ function DataEnrichment() {
       </div>
 
       {merged.length > 0 && (
-        <div className="enr-metrics-row">
-          <MetricCard icon={<CloudLightning size={24} />} label="Stormy Days Avg Fare" value={`$${stormyAvg.toFixed(2)}`} sub={`${stormy.length} days with precip>5mm or wind>10m/s`} color="#ef4444" />
-          <MetricCard icon={<Sun size={24} />} label="Clear Days Avg Fare" value={`$${clearAvg.toFixed(2)}`} sub={`${clear.length} days with precip≤1mm & wind≤6m/s`} color="#22c55e" />
-          <MetricCard icon={<ArrowUpRight size={24} />} label="Weather Premium" value={`${premium > 0 ? '+' : ''}${premium.toFixed(1)}%`} sub="Fare increase on severe weather days" color={premium > 0 ? '#ef4444' : '#22c55e'} />
-          <MetricCard icon={<CalendarDays size={24} />} label="Dates Analyzed" value={daily.length} sub={`${weatherDates.length} weather records matched`} color="#3b82f6" />
-        </div>
-      )}
-
-      {stormyAvg > 0 && clearAvg > 0 && (
-        <div className="enr-card" style={{marginBottom:'1.5rem'}}>
-          <h4><BarChart3 size={16} style={{verticalAlign:-3}} /> Fare Comparison: Stormy vs Clear Weather Days</h4>
-          <p className="enr-card-sub">Visual comparison of average fares on severe vs clear weather days at {d.airport}</p>
-          <MiniCompareBar label1="Stormy Days" val1={stormyAvg} label2="Clear Days" val2={clearAvg} color1="#ef4444" color2="#22c55e" />
+        <div className="enr-split-row">
+          <div className="enr-split-left">
+            <div className="enr-metrics-grid-2x2">
+              <MetricCard icon={<CloudLightning size={24} />} label="Stormy Days Avg Fare" value={`$${stormyAvg.toFixed(2)}`} sub={`${stormy.length} days with precip>5mm or wind>10m/s`} color="#ef4444" />
+              <MetricCard icon={<Sun size={24} />} label="Clear Days Avg Fare" value={`$${clearAvg.toFixed(2)}`} sub={`${clear.length} days with precip≤1mm & wind≤6m/s`} color="#22c55e" />
+              <MetricCard icon={<ArrowUpRight size={24} />} label="Weather Premium" value={`${premium > 0 ? '+' : ''}${premium.toFixed(1)}%`} sub="Fare increase on severe weather days" color={premium > 0 ? '#ef4444' : '#22c55e'} />
+              <MetricCard icon={<CalendarDays size={24} />} label="Dates Analyzed" value={daily.length} sub={`${weatherDates.length} weather records matched`} color="#3b82f6" />
+            </div>
+          </div>
+          {stormyAvg > 0 && clearAvg > 0 && (
+            <div className="enr-split-right">
+              <div className="enr-card" style={{height:'100%',display:'flex',flexDirection:'column',justifyContent:'center'}}>
+                <h4><BarChart3 size={16} /> Fare Comparison: Stormy vs Clear Weather Days</h4>
+                <p className="enr-card-sub">Visual comparison of average fares on severe vs clear weather days at {d.airport}</p>
+                <MiniCompareBar label1="Stormy Days" val1={stormyAvg} label2="Clear Days" val2={clearAvg} color1="#ef4444" color2="#22c55e" />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -516,6 +521,13 @@ function DataEnrichment() {
         .enr-section-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; font-size: 12px; color: rgba(200,216,232,0.5); }
         .enr-section-badge a { color: #6ec6ff; text-decoration: none; }
         .enr-section-badge a:hover { text-decoration: underline; }
+
+        /* Split Row Layout (metrics left, chart right) */
+        .enr-split-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 2rem; align-items: stretch; }
+        .enr-split-left, .enr-split-right { min-width: 0; }
+        .enr-metrics-grid-2x2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; height: 100%; }
+        @media (max-width: 1100px) { .enr-split-row { grid-template-columns: 1fr; } }
+        @media (max-width: 600px) { .enr-metrics-grid-2x2 { grid-template-columns: 1fr; } }
 
         /* Metrics Row */
         .enr-metrics-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 2rem; }
