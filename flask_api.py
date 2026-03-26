@@ -69,7 +69,6 @@ def get_spark():
             .config("spark.yarn.queue", "default")
             .config("spark.driver.extraClassPath", MYSQL_DRIVER)
             .config("spark.executor.extraClassPath", MYSQL_DRIVER)
-            .config("spark.sql.hive.metastore.jars", "builtin")
             .enableHiveSupport()
             .getOrCreate()
         )
