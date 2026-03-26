@@ -206,7 +206,6 @@ function SectionHeader({ num, title, subtitle, color, icon: Icon, source, source
   return (
     <div className="enr-section-header">
       <div className="enr-section-top">
-        <div className="enr-section-num" style={{ background: `${color}20`, color }}>{num}</div>
         <div>
           <h3 className="enr-section-title" style={{ color }}>{Icon && <Icon size={22} style={{ marginRight: 8, verticalAlign: -4 }} />}{title}</h3>
           <p className="enr-section-subtitle">{subtitle}</p>
