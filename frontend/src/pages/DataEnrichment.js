@@ -107,8 +107,32 @@ function DataEnrichment() {
   const [errors, setErrors] = useState({});
   const [weatherAirport, setWeatherAirport] = useState('ATL');
 
+  // localStorage cache helpers (2-hour TTL)
+  const CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours in ms
+  const getCached = (key) => {
+    try {
+      const raw = localStorage.getItem(`enrich_${key}`);
+      if (!raw) return null;
+      const { data: d, ts } = JSON.parse(raw);
+      if (Date.now() - ts < CACHE_TTL) return d;
+      localStorage.removeItem(`enrich_${key}`);
+    } catch { }
+    return null;
+  };
+  const setCached = (key, d) => {
+    try { localStorage.setItem(`enrich_${key}`, JSON.stringify({ data: d, ts: Date.now() })); } catch { }
+  };
+
   const loadTab = async (tabId, airport) => {
+    // Check in-memory state first (instant for already-loaded tabs)
     if (data[tabId] && tabId !== 'weather') return;
+    // Check localStorage cache (survives page refresh, instant load)
+    const cacheKey = tabId === 'weather' ? `weather_${airport || weatherAirport}` : tabId;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      setData(p => ({ ...p, [tabId]: cached }));
+      return;
+    }
     setLoading(p => ({ ...p, [tabId]: true }));
     setErrors(p => ({ ...p, [tabId]: null }));
     try {
@@ -122,6 +146,7 @@ function DataEnrichment() {
         default: return;
       }
       setData(p => ({ ...p, [tabId]: res.data }));
+      setCached(cacheKey, res.data);
     } catch (e) { setErrors(p => ({ ...p, [tabId]: e.response?.data?.error || e.message })); }
     setLoading(p => ({ ...p, [tabId]: false }));
   };

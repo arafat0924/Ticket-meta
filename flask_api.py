@@ -15,11 +15,11 @@ app = Flask(__name__)
 CORS(app)
 
 # ---------------------------------------------------------------------------
-# In-Memory Cache (analytics results cached for 1 hour)
+# In-Memory Cache (results cached for 2 hours)
 # ---------------------------------------------------------------------------
 _cache = {}
 _cache_lock = threading.Lock()
-CACHE_TTL = 3600  # 1 hour in seconds
+CACHE_TTL = 7200  # 2 hours in seconds
 
 def cache_get(key):
     """Get cached result if still valid."""
@@ -1663,9 +1663,47 @@ def analytics_aircraft_pricing():
 
 
 # ---------------------------------------------------------------------------
+# Background Pre-Warming: Auto-load enrichment data after Spark is ready
+# ---------------------------------------------------------------------------
+def _prewarm_enrichment():
+    """Background thread that pre-warms enrichment caches after startup."""
+    import time as _time
+    _time.sleep(5)  # Wait for Flask to be fully ready
+    print("[Pre-warm] Starting enrichment cache warm-up...")
+    endpoints = [
+        ("weather_ATL", lambda: enrichment_weather.__wrapped__() if hasattr(enrichment_weather, '__wrapped__') else None),
+        ("wealth_analysis", None),
+        ("brand_analysis", None),
+        ("rail_analysis", None),
+        ("ghost_analysis", None),
+    ]
+    # Use the Flask test client to trigger each endpoint
+    with app.test_client() as client:
+        tabs = [
+            ("/api/enrichment/weather?airport=ATL", "Weather (ATL)"),
+            ("/api/enrichment/wealth", "Wealth Gap"),
+            ("/api/enrichment/brand", "Brand Markup"),
+            ("/api/enrichment/rail", "Rail Effect"),
+            ("/api/enrichment/ghost", "Ghost Fares"),
+        ]
+        for url, name in tabs:
+            try:
+                print(f"[Pre-warm] Loading {name}...")
+                resp = client.get(url)
+                if resp.status_code == 200:
+                    print(f"[Pre-warm] ✅ {name} cached successfully")
+                else:
+                    print(f"[Pre-warm] ⚠️ {name} returned {resp.status_code}")
+            except Exception as e:
+                print(f"[Pre-warm] ❌ {name} failed: {e}")
+    print("[Pre-warm] 🎉 All enrichment tabs pre-warmed!")
+
 if __name__ == "__main__":
     # Initialize Spark on startup
     print("Initializing SparkSession with Hive support...")
     get_spark()
     print("SparkSession ready. Starting Flask server...")
+    # Start background pre-warming thread
+    prewarm_thread = threading.Thread(target=_prewarm_enrichment, daemon=True)
+    prewarm_thread.start()
     app.run(host="0.0.0.0", port=5000, debug=False)
