@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { enrichmentWeather, enrichmentWealth, enrichmentBrand, enrichmentRail, enrichmentGhost } from '../api';
-import { CloudRain, DollarSign, Award, Train, Ghost, Loader2, AlertTriangle, ExternalLink, TrendingUp, BarChart3, Database, Globe, CloudLightning, Sun, ArrowUpRight, CalendarDays, Landmark, Home, Wallet, GitCompareArrows, TrainFront, Plane, TrendingDown, MapPin, Search, ShieldAlert, Activity, Smartphone, Code2, ChevronDown, ChevronUp, Terminal } from 'lucide-react';
+import { CloudRain, DollarSign, Award, Train, Ghost, Loader2, AlertTriangle, ExternalLink, TrendingUp, BarChart3, Database, Globe, CloudLightning, Sun, ArrowUpRight, CalendarDays, Landmark, Home, Wallet, GitCompareArrows, TrainFront, Plane, TrendingDown, MapPin, Search, ShieldAlert, Activity, Smartphone, Code2, ChevronDown, ChevronUp, Terminal, CircleDollarSign } from 'lucide-react';
 
 const TABS = [
   { id: 'weather', label: 'Weather Impact', icon: CloudRain, color: '#3b82f6' },
-  { id: 'wealth', label: 'Wealth Gap', icon: DollarSign, color: '#10b981' },
+  { id: 'wealth', label: 'Wealth Gap', icon: CircleDollarSign, color: '#10b981' },
   { id: 'brand', label: 'Brand Markup', icon: Award, color: '#f59e0b' },
   { id: 'rail', label: 'Rail Effect', icon: Train, color: '#8b5cf6' },
   { id: 'ghost', label: 'Ghost Fares', icon: Ghost, color: '#ef4444' },
@@ -410,7 +410,7 @@ function DataEnrichment() {
     const topN = airports.slice(0, 12);
     return (<div>
       <SectionHeader num="II" title="Geographical Wealth & Purchasing Power Discrimination" subtitle="Investigating whether airlines systematically charge higher per-mile fares from affluent metropolitan areas, exploiting lower price sensitivity of wealthier passengers."
-        color="#10b981" icon={DollarSign} source="US Census Bureau / FRED (2022 ACS)" sourceUrl="https://fred.stlouisfed.org/" />
+        color="#10b981" icon={CircleDollarSign} source="US Census Bureau / FRED (2022 ACS)" sourceUrl="https://fred.stlouisfed.org/" />
       {tiers.length >= 2 && (
         <div className="enr-metrics-row">
           <MetricCard icon={<Landmark size={24} />} label="High-Income Hubs" value={`$${tiers.find(t=>t.tier==='High')?.avgPricePerMile || '—'}/mi`} sub={`${tiers.find(t=>t.tier==='High')?.airportCount || 0} airports (income ≥$90K)`} color="#ef4444" />
