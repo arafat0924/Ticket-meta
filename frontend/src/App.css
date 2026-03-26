@@ -27,6 +27,11 @@
   opacity: 0.45;
   z-index: 0;
   pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.app.hide-global-bg::before {
+  opacity: 0 !important;
 }
 
 /* Hide the static background on landing page so hero video shows */
