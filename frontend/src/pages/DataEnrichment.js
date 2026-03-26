@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { enrichmentWeather, enrichmentWealth, enrichmentBrand, enrichmentRail, enrichmentGhost } from '../api';
 import { CloudRain, DollarSign, Award, Train, Ghost, Loader2, AlertTriangle, ExternalLink, TrendingUp, BarChart3, Database, Globe, CloudLightning, Sun, ArrowUpRight, CalendarDays, Landmark, Home, Wallet, GitCompareArrows, TrainFront, Plane, TrendingDown, MapPin, Search, ShieldAlert, Activity, Smartphone, Code2, ChevronDown, ChevronUp, Terminal, CircleDollarSign } from 'lucide-react';
 
@@ -219,48 +219,23 @@ function SectionHeader({ num, title, subtitle, color, icon: Icon, source, source
   );
 }
 
-/* ── Animated Flight Data Background (kept from before) ── */
-function FlightDataCanvas() {
-  const canvasRef = useRef(null);
-  useEffect(() => {
-    const canvas = canvasRef.current; if (!canvas) return;
-    const ctx = canvas.getContext('2d'); let animId, W, H;
-    const resize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; };
-    resize(); window.addEventListener('resize', resize);
-    const hubs = [
-      {x:.18,y:.28,label:'JFK',r:3.5},{x:.15,y:.35,label:'ATL',r:4},{x:.12,y:.30,label:'ORD',r:3},
-      {x:.22,y:.38,label:'MIA',r:2.8},{x:.08,y:.25,label:'LAX',r:3.5},{x:.09,y:.22,label:'SFO',r:2.8},
-      {x:.42,y:.25,label:'LHR',r:3.5},{x:.45,y:.22,label:'CDG',r:3},{x:.50,y:.20,label:'FRA',r:2.8},
-      {x:.55,y:.35,label:'DXB',r:3.5},{x:.70,y:.30,label:'DEL',r:3},{x:.78,y:.28,label:'BKK',r:2.8},
-      {x:.85,y:.25,label:'NRT',r:3.5},{x:.82,y:.35,label:'SIN',r:3},{x:.88,y:.45,label:'SYD',r:3},
-      {x:.35,y:.50,label:'JNB',r:2.5},{x:.25,y:.48,label:'GRU',r:2.8},{x:.10,y:.20,label:'SEA',r:2.5},
-      {x:.13,y:.26,label:'DEN',r:2.5},{x:.16,y:.32,label:'DFW',r:3},
-    ];
-    const routes = [[0,6],[1,6],[4,12],[2,7],[5,11],[3,9],[6,9],[9,10],[10,11],[11,12],[12,13],[13,14],[0,7],[4,13],[1,15],[3,16],[2,8],[5,12],[17,12],[18,6],[19,9],[8,10],[7,9],[15,6]];
-    const planes = routes.map(r => ({ route:r, progress:Math.random(), speed:0.0008+Math.random()*0.0012, opacity:0.3+Math.random()*0.4 }));
-    const particles = Array.from({length:50},()=>({x:Math.random(),y:Math.random(),vx:(Math.random()-0.5)*0.0003,vy:(Math.random()-0.5)*0.0003,r:1+Math.random()*2,opacity:0.15+Math.random()*0.3,color:['#f5a623','#6ec6ff','#22c55e','#8b5cf6','#3b82f6'][Math.floor(Math.random()*5)],pulse:Math.random()*Math.PI*2}));
-    let time = 0;
-    function draw() {
-      time += 0.016; ctx.clearRect(0,0,W,H);
-      ctx.strokeStyle='rgba(110,198,255,0.03)'; ctx.lineWidth=0.5;
-      for(let x=0;x<W;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
-      for(let y=0;y<H;y+=80){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
-      planes.forEach(p=>{const f=hubs[p.route[0]],t=hubs[p.route[1]],fx=f.x*W,fy=f.y*H,tx=t.x*W,ty=t.y*H,mx=(fx+tx)/2,my=(fy+ty)/2-Math.abs(tx-fx)*0.15;
-        ctx.beginPath();ctx.moveTo(fx,fy);ctx.quadraticCurveTo(mx,my,tx,ty);ctx.strokeStyle=`rgba(110,198,255,${p.opacity*0.12})`;ctx.lineWidth=0.7;ctx.stroke();
-        const pr=p.progress,px=(1-pr)*(1-pr)*fx+2*(1-pr)*pr*mx+pr*pr*tx,py=(1-pr)*(1-pr)*fy+2*(1-pr)*pr*my+pr*pr*ty;
-        const g=ctx.createRadialGradient(px,py,0,px,py,5);g.addColorStop(0,`rgba(245,166,35,${p.opacity*0.7})`);g.addColorStop(1,'rgba(245,166,35,0)');ctx.beginPath();ctx.arc(px,py,5,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
-        ctx.beginPath();ctx.arc(px,py,1.5,0,Math.PI*2);ctx.fillStyle=`rgba(245,166,35,${p.opacity})`;ctx.fill();
-        p.progress+=p.speed;if(p.progress>1)p.progress=0;});
-      hubs.forEach((h,i)=>{const hx=h.x*W,hy=h.y*H,pulse=Math.sin(time*1.5+i)*0.3+0.7;
-        ctx.beginPath();ctx.arc(hx,hy,h.r,0,Math.PI*2);ctx.fillStyle=`rgba(110,198,255,${0.4*pulse})`;ctx.fill();
-        ctx.font='7px monospace';ctx.fillStyle=`rgba(110,198,255,${0.2*pulse})`;ctx.fillText(h.label,hx+h.r+2,hy+3);});
-      particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.pulse+=0.02;if(p.x<0||p.x>1)p.vx*=-1;if(p.y<0||p.y>1)p.vy*=-1;
-        ctx.globalAlpha=p.opacity*(0.5+Math.sin(p.pulse)*0.5);ctx.beginPath();ctx.arc(p.x*W,p.y*H,p.r,0,Math.PI*2);ctx.fillStyle=p.color;ctx.fill();ctx.globalAlpha=1;});
-      animId=requestAnimationFrame(draw);}
-    draw();
-    return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',resize);};
-  },[]);
-  return <canvas ref={canvasRef} style={{position:'fixed',inset:0,width:'100%',height:'100%',zIndex:-1,pointerEvents:'none',opacity:0.8}}/>;
+/* ── Subtle Floating Light Particles (CSS-driven, complements photo bg) ── */
+function FloatingParticles() {
+  return (
+    <div className="enr-particles" aria-hidden="true">
+      {Array.from({ length: 18 }).map((_, i) => (
+        <span key={i} className="enr-particle" style={{
+          '--x': `${5 + Math.random() * 90}%`,
+          '--y': `${5 + Math.random() * 90}%`,
+          '--dur': `${12 + Math.random() * 20}s`,
+          '--del': `${-Math.random() * 15}s`,
+          '--size': `${2 + Math.random() * 4}px`,
+          '--o': 0.15 + Math.random() * 0.35,
+          '--color': ['#f5a623','#ffffff','#6ec6ff','#22c55e','#8b5cf6'][Math.floor(Math.random() * 5)]
+        }} />
+      ))}
+    </div>
+  );
 }
 
 /* ── Main Component ── */
@@ -632,7 +607,7 @@ function DataEnrichment() {
 
   return (
     <div className="enr-page">
-      <FlightDataCanvas />
+      <FloatingParticles />
       <div className="enr-header">
         <div className="enr-header-badge">External Datasets × Hive Analytics</div>
         <h1>Data Enrichment & External Analysis</h1>
@@ -653,6 +628,10 @@ function DataEnrichment() {
         .app.hide-global-bg ~ body, body:has(.hide-global-bg) { background: transparent !important; }
         .enr-page { max-width: 1440px; margin: 0 auto; padding: 100px 2rem 2rem; position: relative; z-index: 1; }
         .enr-page::before { content: ''; position: fixed; inset: 0; background: url('/820.png') center/cover no-repeat; opacity: 1; z-index: -2; pointer-events: none; }
+        .enr-page::after { content: ''; position: fixed; inset: 0; background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.25) 100%); z-index: -1; pointer-events: none; }
+        .enr-particles { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+        .enr-particle { position: absolute; left: var(--x); top: var(--y); width: var(--size); height: var(--size); border-radius: 50%; background: var(--color); opacity: 0; animation: enrFloat var(--dur) var(--del) ease-in-out infinite; box-shadow: 0 0 8px var(--color); }
+        @keyframes enrFloat { 0%,100%{opacity:0;transform:translateY(0) scale(0.5)} 25%{opacity:var(--o);transform:translateY(-30px) translateX(15px) scale(1)} 50%{opacity:var(--o);transform:translateY(-60px) translateX(-10px) scale(1.1)} 75%{opacity:var(--o);transform:translateY(-30px) translateX(20px) scale(0.9)} }
         .enr-header { text-align: center; margin-bottom: 3rem; padding: 20px 0 0; }
         .enr-header-badge { display: inline-block; padding: 8px 22px; background: rgba(245,166,35,0.08); border: 1px solid rgba(245,166,35,0.2); border-radius: 24px; font-size: 13px; font-weight: 600; color: #f5a623; letter-spacing: 0.5px; margin-bottom: 24px; }
         .enr-header h1 { font-family: 'Manrope', sans-serif; font-size: clamp(2.2rem, 4vw, 3rem); font-weight: 800; color: #ffffff; letter-spacing: -0.5px; margin-bottom: 18px; }
