@@ -645,8 +645,8 @@ function DataEnrichment() {
       <div className="enr-content">{renderContent()}</div>
       <style>{`
         .enr-page { max-width: 1440px; margin: 0 auto; padding: 100px 2rem 2rem; position: relative; z-index: 1; }
-        .enr-page::before { content: ''; position: fixed; inset: 0; background: url('/820.png') center/cover no-repeat; opacity: 0.5; z-index: -2; pointer-events: none; }
-        .enr-page::after { content: ''; position: fixed; inset: 0; background: linear-gradient(180deg, rgba(11,26,46,0.45) 0%, rgba(11,26,46,0.6) 40%, rgba(11,26,46,0.78) 100%); z-index: -1; pointer-events: none; }
+        .enr-page::before { content: ''; position: fixed; inset: 0; background: url('/820.png') center/cover no-repeat; opacity: 0.75; z-index: -2; pointer-events: none; }
+        .enr-page::after { content: ''; position: fixed; inset: 0; background: linear-gradient(180deg, rgba(11,26,46,0.25) 0%, rgba(11,26,46,0.35) 40%, rgba(11,26,46,0.55) 100%); z-index: -1; pointer-events: none; }
         .enr-header { text-align: center; margin-bottom: 3rem; padding: 20px 0 0; }
         .enr-header-badge { display: inline-block; padding: 8px 22px; background: rgba(245,166,35,0.08); border: 1px solid rgba(245,166,35,0.2); border-radius: 24px; font-size: 13px; font-weight: 600; color: #f5a623; letter-spacing: 0.5px; margin-bottom: 24px; }
         .enr-header h1 { font-family: 'Manrope', sans-serif; font-size: clamp(2.2rem, 4vw, 3rem); font-weight: 800; color: #ffffff; letter-spacing: -0.5px; margin-bottom: 18px; }
