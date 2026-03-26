@@ -627,7 +627,7 @@ function DataEnrichment() {
         .app.hide-global-bg { background: transparent !important; }
         .app.hide-global-bg ~ body, body:has(.hide-global-bg) { background: transparent !important; }
         .enr-page { max-width: 1440px; margin: 0 auto; padding: 100px 2rem 6rem; position: relative; z-index: 1; }
-        .enr-page::before { content: ''; position: fixed; inset: 0; background: url('/bg_enrch.png') center/cover no-repeat; opacity: 1; z-index: -2; pointer-events: none; }
+        .enr-page::before { content: ''; position: fixed; inset: 0; background: url('/820.png') center/cover no-repeat; opacity: 1; z-index: -2; pointer-events: none; }
         .enr-page::after { content: ''; position: fixed; inset: 0; background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.25) 100%); z-index: -1; pointer-events: none; }
         .enr-particles { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
         .enr-particle { position: absolute; left: var(--x); top: var(--y); width: var(--size); height: var(--size); border-radius: 50%; background: var(--color); opacity: 0; animation: enrFloat var(--dur) var(--del) ease-in-out infinite; box-shadow: 0 0 8px var(--color); }
