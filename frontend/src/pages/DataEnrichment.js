@@ -626,7 +626,7 @@ function DataEnrichment() {
       <style>{`
         .app.hide-global-bg { background: transparent !important; }
         .app.hide-global-bg ~ body, body:has(.hide-global-bg) { background: transparent !important; }
-        .enr-page { max-width: 1440px; margin: 0 auto; padding: 100px 2rem 2rem; position: relative; z-index: 1; }
+        .enr-page { max-width: 1440px; margin: 0 auto; padding: 100px 2rem 6rem; position: relative; z-index: 1; }
         .enr-page::before { content: ''; position: fixed; inset: 0; background: url('/bg_enrch.png') center/cover no-repeat; opacity: 1; z-index: -2; pointer-events: none; }
         .enr-page::after { content: ''; position: fixed; inset: 0; background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.25) 100%); z-index: -1; pointer-events: none; }
         .enr-particles { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
@@ -636,7 +636,7 @@ function DataEnrichment() {
         .enr-header-badge { display: inline-block; padding: 8px 22px; background: rgba(245,166,35,0.15); border: 1px solid rgba(245,166,35,0.35); border-radius: 24px; font-size: 13px; font-weight: 600; color: #f5a623; letter-spacing: 0.5px; margin-bottom: 20px; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
         .enr-header h1 { font-family: 'Manrope', sans-serif; font-size: clamp(2.2rem, 4vw, 3rem); font-weight: 800; color: #ffffff; letter-spacing: -0.5px; margin-bottom: 14px; text-shadow: 0 2px 12px rgba(0,0,0,0.7), 0 0 40px rgba(245,166,35,0.15); }
         .enr-header p { color: rgba(200,216,232,0.75); font-size: 16px; max-width: 600px; margin: 0 auto; line-height: 1.7; text-shadow: 0 1px 6px rgba(0,0,0,0.5); }
-        .enr-tabs { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 2.5rem; }
+        .enr-tabs { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 6rem; }
         .enr-tab { display: flex; align-items: center; gap: 8px; padding: 12px 24px; border: 1px solid rgba(255,255,255,0.12); border-radius: 14px; background: rgba(5,15,30,0.75); color: rgba(200,216,232,0.7); cursor: pointer; font-size: 14.5px; font-weight: 500; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); backdrop-filter: blur(20px) saturate(150%); text-shadow: 0 1px 4px rgba(0,0,0,0.4); box-shadow: 0 2px 12px rgba(0,0,0,0.3); }
         .enr-tab:hover { border-color: rgba(245,166,35,0.3); color: #ffffff; background: rgba(5,15,30,0.85); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.35); }
         .enr-tab.active { background: rgba(5,15,30,0.92); font-weight: 700; color: #ffffff; box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08) inset, 0 0 20px rgba(245,166,35,0.12); }
