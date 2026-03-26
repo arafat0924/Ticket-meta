@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Search, MessageSquare, Plane, TrendingUp, Scissors, FlaskConical } from 'lucide-react';
+import { Search, MessageSquare, Plane, TrendingUp, Map, FlaskConical } from 'lucide-react';
 import { healthCheck } from '../api';
 
 function Navbar() {
@@ -34,8 +34,8 @@ function Navbar() {
           <NavLink to="/analytics" className={({ isActive }) => `tl-nav-link ${isActive ? 'active' : ''}`}>
             <TrendingUp size={14} /> Analytics
           </NavLink>
-          <NavLink to="/flight-splicing" className={({ isActive }) => `tl-nav-link ${isActive ? 'active' : ''}`}>
-            <Scissors size={14} /> Splicing
+          <NavLink to="/optimized-route" className={({ isActive }) => `tl-nav-link ${isActive ? 'active' : ''}`}>
+            <Map size={14} /> Optimized Route
           </NavLink>
           <NavLink to="/chatbot" className={({ isActive }) => `tl-nav-link ${isActive ? 'active' : ''}`}>
             <MessageSquare size={14} /> AI Chat
