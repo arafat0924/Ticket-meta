@@ -29,6 +29,11 @@
   pointer-events: none;
 }
 
+/* Hide the static background on landing page so hero video shows */
+.app.landing-active::before {
+  display: none;
+}
+
 .app > * {
   position: relative;
   z-index: 1;

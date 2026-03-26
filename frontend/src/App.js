@@ -14,7 +14,7 @@ function AppContent() {
   const isLanding = location.pathname === '/';
 
   return (
-    <div className="app">
+    <div className={`app${isLanding ? ' landing-active' : ''}`}>
       {!isLanding && <Navbar />}
       <Routes>
         <Route path="/" element={<Landing />} />
