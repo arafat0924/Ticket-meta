@@ -553,20 +553,24 @@ function DataEnrichment() {
         .enr-controls select { padding: 0.5rem 0.75rem; border-radius: 10px; background: rgba(0,0,0,0.3); color: #d0d0d0; border: 1px solid rgba(255,255,255,0.15); font-size: 14px; font-family: inherit; outline: none; cursor: pointer; }
 
         /* Grid & Cards */
-        .enr-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 1rem; margin-top: 1rem; }
-        .enr-card { background: rgba(11,26,46,0.5); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 1.25rem; box-shadow: 0 6px 24px rgba(0,0,0,0.2), 0 1px 0 rgba(255,255,255,0.03) inset; transition: all 0.3s ease; position: relative; overflow: hidden; }
-        .enr-card:hover { border-color: rgba(255,255,255,0.1); }
-        .enr-card h4 { color: #e8f0ff; margin: 0 0 0.5rem; font-size: 1rem; font-weight: 700; }
-        .enr-card-sub { color: rgba(200,216,232,0.4); font-size: 12px; margin: 0 0 0.75rem; }
+        .enr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-top: 1.25rem; }
+        @media (max-width: 1100px) { .enr-grid { grid-template-columns: 1fr; } }
+        .enr-card { background: rgba(11,26,46,0.5); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 1.5rem; box-shadow: 0 6px 24px rgba(0,0,0,0.2), 0 1px 0 rgba(255,255,255,0.03) inset; transition: all 0.3s ease; position: relative; overflow: hidden; }
+        .enr-card:hover { border-color: rgba(255,255,255,0.1); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+        .enr-card h4 { color: #e8f0ff; margin: 0 0 0.6rem; font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .enr-card-sub { color: rgba(200,216,232,0.4); font-size: 12.5px; margin: 0 0 1rem; }
 
-        /* Tables */
-        .enr-table-wrap { overflow-x: auto; max-height: 380px; overflow-y: auto; }
-        .enr-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-        .enr-table th { background: rgba(0,0,0,0.3); color: rgba(200,216,232,0.5); padding: 0.5rem; text-align: left; position: sticky; top: 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-        .enr-table td { padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.04); color: rgba(200,216,232,0.7); }
-        .enr-table tr:hover { background: rgba(245,166,35,0.06); }
-        .enr-highlight { background: rgba(245,166,35,0.08) !important; }
-        .enr-danger { background: rgba(239,68,68,0.1) !important; }
+        /* Tables - Professional */
+        .enr-table-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06); }
+        .enr-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+        .enr-table th { background: linear-gradient(180deg, rgba(245,166,35,0.12), rgba(245,166,35,0.06)); color: rgba(245,166,35,0.8); padding: 0.65rem 0.7rem; text-align: left; position: sticky; top: 0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 2px solid rgba(245,166,35,0.15); z-index: 2; }
+        .enr-table td { padding: 0.55rem 0.7rem; border-bottom: 1px solid rgba(255,255,255,0.04); color: rgba(200,216,232,0.75); font-variant-numeric: tabular-nums; }
+        .enr-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+        .enr-table tbody tr:nth-child(odd) { background: rgba(0,0,0,0.08); }
+        .enr-table tr:hover { background: rgba(110,198,255,0.06) !important; }
+        .enr-table tr:hover td { color: rgba(200,216,232,0.95); }
+        .enr-highlight { background: rgba(245,166,35,0.08) !important; border-left: 3px solid rgba(245,166,35,0.5); }
+        .enr-danger { background: rgba(239,68,68,0.1) !important; border-left: 3px solid rgba(239,68,68,0.5); }
         .enr-bold { font-weight: 700; color: #f5a623; }
         .enr-badge { padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
         .enr-badge-high { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.2); }
