@@ -30,9 +30,30 @@ function HBarChart({ data, labelKey, valueKey, color = '#f5a623', maxVal, suffix
 
 function MetricCard({ icon, label, value, sub, color = '#f5a623' }) {
   return (
-    <div className="enr-metric" style={{ borderColor: `${color}30` }}>
-      <div className="enr-metric-icon" style={{ color, background: `${color}15` }}>{icon}</div>
-      <div><div className="enr-metric-value" style={{ color }}>{value}</div><div className="enr-metric-label">{label}</div>{sub && <div className="enr-metric-sub">{sub}</div>}</div>
+    <div className="enr-metric" style={{ borderColor: `${color}40`, background: `linear-gradient(135deg, ${color}08, ${color}04, transparent)` }}>
+      <div className="enr-metric-icon" style={{ color, background: `linear-gradient(135deg, ${color}25, ${color}10)`, boxShadow: `0 4px 16px ${color}20` }}>{icon}</div>
+      <div style={{flex:1}}>
+        <div className="enr-metric-value" style={{ color }}>{value}</div>
+        <div className="enr-metric-label">{label}</div>
+        {sub && <div className="enr-metric-sub">{sub}</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ── Mini Sparkline Bar Chart (visual comparison) ── */
+function MiniCompareBar({ label1, val1, label2, val2, color1 = '#ef4444', color2 = '#22c55e' }) {
+  const max = Math.max(val1, val2) * 1.15 || 1;
+  return (
+    <div className="enr-compare-bar">
+      <div className="enr-compare-item">
+        <div className="enr-compare-head"><span style={{color: color1, fontWeight:700}}>{label1}</span><span style={{color: color1, fontWeight:800, fontSize:'1.1rem'}}>${val1.toFixed(2)}</span></div>
+        <div className="enr-compare-track"><div className="enr-compare-fill" style={{width:`${(val1/max)*100}%`, background: `linear-gradient(90deg, ${color1}60, ${color1})`}} /></div>
+      </div>
+      <div className="enr-compare-item">
+        <div className="enr-compare-head"><span style={{color: color2, fontWeight:700}}>{label2}</span><span style={{color: color2, fontWeight:800, fontSize:'1.1rem'}}>${val2.toFixed(2)}</span></div>
+        <div className="enr-compare-track"><div className="enr-compare-fill" style={{width:`${(val2/max)*100}%`, background: `linear-gradient(90deg, ${color2}60, ${color2})`}} /></div>
+      </div>
     </div>
   );
 }
@@ -187,6 +208,14 @@ function DataEnrichment() {
           <MetricCard icon="☀️" label="Clear Days Avg Fare" value={`$${clearAvg.toFixed(2)}`} sub={`${clear.length} days with precip≤1mm & wind≤6m/s`} color="#22c55e" />
           <MetricCard icon="📈" label="Weather Premium" value={`${premium > 0 ? '+' : ''}${premium.toFixed(1)}%`} sub="Fare increase on severe weather days" color={premium > 0 ? '#ef4444' : '#22c55e'} />
           <MetricCard icon="📊" label="Dates Analyzed" value={daily.length} sub={`${weatherDates.length} weather records matched`} color="#3b82f6" />
+        </div>
+      )}
+
+      {stormyAvg > 0 && clearAvg > 0 && (
+        <div className="enr-card" style={{marginBottom:'1.5rem'}}>
+          <h4><BarChart3 size={16} style={{verticalAlign:-3}} /> Fare Comparison: Stormy vs Clear Weather Days</h4>
+          <p className="enr-card-sub">Visual comparison of average fares on severe vs clear weather days at {d.airport}</p>
+          <MiniCompareBar label1="🌧️ Stormy Days" val1={stormyAvg} label2="☀️ Clear Days" val2={clearAvg} color1="#ef4444" color2="#22c55e" />
         </div>
       )}
 
@@ -464,9 +493,9 @@ function DataEnrichment() {
       </div>
       <div className="enr-content">{renderContent()}</div>
       <style>{`
-        .enr-page { max-width: 1400px; margin: 0 auto; padding: 100px 1rem 2rem; position: relative; z-index: 1; }
-        .enr-page::before { content: ''; position: fixed; inset: 0; background: url('/bg_enrch.png') center/cover no-repeat; opacity: 0.35; z-index: -2; pointer-events: none; }
-        .enr-page::after { content: ''; position: fixed; inset: 0; background: linear-gradient(180deg, rgba(11,26,46,0.55) 0%, rgba(11,26,46,0.7) 40%, rgba(11,26,46,0.85) 100%); z-index: -1; pointer-events: none; }
+        .enr-page { max-width: 1680px; margin: 0 auto; padding: 100px 2.5rem 2rem; position: relative; z-index: 1; }
+        .enr-page::before { content: ''; position: fixed; inset: 0; background: url('/bg_enrch.png') center/cover no-repeat; opacity: 0.5; z-index: -2; pointer-events: none; }
+        .enr-page::after { content: ''; position: fixed; inset: 0; background: linear-gradient(180deg, rgba(11,26,46,0.45) 0%, rgba(11,26,46,0.6) 40%, rgba(11,26,46,0.78) 100%); z-index: -1; pointer-events: none; }
         .enr-header { text-align: center; margin-bottom: 3rem; padding: 20px 0 0; }
         .enr-header-badge { display: inline-block; padding: 8px 22px; background: rgba(245,166,35,0.08); border: 1px solid rgba(245,166,35,0.2); border-radius: 24px; font-size: 13px; font-weight: 600; color: #f5a623; letter-spacing: 0.5px; margin-bottom: 24px; }
         .enr-header h1 { font-family: 'Manrope', sans-serif; font-size: clamp(2.2rem, 4vw, 3rem); font-weight: 800; color: #ffffff; letter-spacing: -0.5px; margin-bottom: 18px; }
@@ -489,12 +518,21 @@ function DataEnrichment() {
         .enr-section-badge a:hover { text-decoration: underline; }
 
         /* Metrics Row */
-        .enr-metrics-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 1.5rem; }
-        .enr-metric { display: flex; gap: 12px; align-items: center; padding: 16px; background: rgba(11,26,46,0.6); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; backdrop-filter: blur(10px); }
-        .enr-metric-icon { font-size: 1.4rem; min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 12px; }
-        .enr-metric-value { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.5px; }
-        .enr-metric-label { font-size: 12px; font-weight: 600; color: rgba(200,216,232,0.5); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
-        .enr-metric-sub { font-size: 11px; color: rgba(200,216,232,0.35); margin-top: 3px; }
+        .enr-metrics-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 2rem; }
+        .enr-metric { display: flex; gap: 16px; align-items: center; padding: 22px 20px; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; backdrop-filter: blur(14px) saturate(140%); transition: all 0.3s ease; position: relative; overflow: hidden; }
+        .enr-metric::after { content: ''; position: absolute; top: 0; right: 0; width: 80px; height: 80px; border-radius: 50%; opacity: 0.04; pointer-events: none; }
+        .enr-metric:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.25); border-color: rgba(255,255,255,0.12); }
+        .enr-metric-icon { font-size: 1.6rem; min-width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; border-radius: 14px; flex-shrink: 0; }
+        .enr-metric-value { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.5px; line-height: 1.2; }
+        .enr-metric-label { font-size: 11.5px; font-weight: 700; color: rgba(200,216,232,0.55); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 4px; }
+        .enr-metric-sub { font-size: 11px; color: rgba(200,216,232,0.35); margin-top: 4px; line-height: 1.4; }
+
+        /* Compare Bar Chart */
+        .enr-compare-bar { display: flex; flex-direction: column; gap: 16px; padding: 4px 0; }
+        .enr-compare-item { }
+        .enr-compare-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; padding: 0 2px; }
+        .enr-compare-track { height: 32px; background: rgba(255,255,255,0.04); border-radius: 8px; overflow: hidden; }
+        .enr-compare-fill { height: 100%; border-radius: 8px; transition: width 0.8s cubic-bezier(0.16,1,0.3,1); min-width: 8px; }
 
         /* Horizontal Bar Chart */
         .enr-hbar-chart { display: flex; flex-direction: column; gap: 8px; }
