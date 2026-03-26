@@ -5,7 +5,7 @@ import Landing from './pages/Landing';
 import FlightSearch from './pages/FlightSearch';
 import Chatbot from './pages/Chatbot';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
-import FlightSplicing from './pages/FlightSplicing';
+import OptimizedRoute from './pages/Optimized_Route';
 import DataEnrichment from './pages/DataEnrichment';
 import './App.css';
 
@@ -20,7 +20,7 @@ function AppContent() {
         <Route path="/" element={<Landing />} />
         <Route path="/flights" element={<FlightSearch />} />
         <Route path="/analytics" element={<AnalyticsDashboard />} />
-        <Route path="/flight-splicing" element={<FlightSplicing />} />
+        <Route path="/optimized-route" element={<OptimizedRoute />} />
         <Route path="/chatbot" element={<Chatbot />} />
         <Route path="/enrichment" element={<DataEnrichment />} />
       </Routes>
