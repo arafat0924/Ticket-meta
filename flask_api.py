@@ -1248,6 +1248,391 @@ def enrichment_ghost():
         return jsonify({"error": str(e)}), 500
 
 
+# ===========================================================================
+#   NEW ANALYTICS ENDPOINTS — Sections I.10, II, III
+# ===========================================================================
+
+# I.10  Nonstop premium — top 20 busiest routes direct vs multi-leg
+@app.route("/api/analytics/nonstop-premium")
+def analytics_nonstop_premium():
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+        SELECT route, nonstop_avg, connecting_avg,
+               (nonstop_avg - connecting_avg) AS premium,
+               nonstop_cnt, connecting_cnt
+        FROM (
+            SELECT CONCAT(startingAirport,' → ',destinationAirport) AS route,
+                   AVG(CASE WHEN isNonStop='true' THEN CAST(totalFare AS DOUBLE) END) AS nonstop_avg,
+                   AVG(CASE WHEN isNonStop='false' THEN CAST(totalFare AS DOUBLE) END) AS connecting_avg,
+                   SUM(CASE WHEN isNonStop='true' THEN 1 ELSE 0 END) AS nonstop_cnt,
+                   SUM(CASE WHEN isNonStop='false' THEN 1 ELSE 0 END) AS connecting_cnt,
+                   COUNT(*) AS total
+            FROM {tbl}
+            GROUP BY startingAirport, destinationAirport
+            ORDER BY total DESC
+            LIMIT 20
+        ) sub
+        WHERE nonstop_avg IS NOT NULL AND connecting_avg IS NOT NULL
+        """
+        _, rows = run_query(sql)
+        data = [clean_row(r) for r in rows]
+        return {"routes": data, "query": sql}
+    return jsonify(cached_query("nonstop_premium", _query))
+
+# II.1 + II.2  Network overview — unique airports + null distance records
+@app.route("/api/analytics/network-overview")
+def analytics_network_overview():
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+        SELECT
+            COUNT(DISTINCT startingAirport) AS unique_origins,
+            COUNT(DISTINCT destinationAirport) AS unique_destinations,
+            SUM(CASE WHEN totalTravelDistance IS NULL OR CAST(totalTravelDistance AS DOUBLE) IS NULL THEN 1 ELSE 0 END) AS null_distance_records,
+            COUNT(*) AS total_records
+        FROM {tbl}
+        """
+        _, rows = run_query(sql)
+        r = clean_row(rows[0]) if rows else {}
+        return {"overview": r, "query": sql}
+    return jsonify(cached_query("network_overview", _query))
+
+# II.3  Top 10 longest flights by distance
+@app.route("/api/analytics/longest-flights")
+def analytics_longest_flights():
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+        SELECT startingAirport, destinationAirport,
+               CAST(totalTravelDistance AS DOUBLE) AS distance,
+               segmentsAirlineName AS airline,
+               CAST(totalFare AS DOUBLE) AS fare, travelDuration
+        FROM {tbl}
+        WHERE totalTravelDistance IS NOT NULL AND CAST(totalTravelDistance AS DOUBLE) > 0
+        ORDER BY CAST(totalTravelDistance AS DOUBLE) DESC
+        LIMIT 10
+        """
+        _, rows = run_query(sql)
+        return {"flights": [clean_row(r) for r in rows], "query": sql}
+    return jsonify(cached_query("longest_flights", _query))
+
+# II.4  Top 20 most frequent routes
+@app.route("/api/analytics/top-routes")
+def analytics_top_routes():
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+        SELECT startingAirport, destinationAirport,
+               CONCAT(startingAirport,' → ',destinationAirport) AS route,
+               COUNT(*) AS flightCount,
+               ROUND(AVG(CAST(totalFare AS DOUBLE)),2) AS avgFare
+        FROM {tbl}
+        GROUP BY startingAirport, destinationAirport
+        ORDER BY flightCount DESC
+        LIMIT 20
+        """
+        _, rows = run_query(sql)
+        return {"routes": [clean_row(r) for r in rows], "query": sql}
+    return jsonify(cached_query("top_routes", _query))
+
+# II.5  Top 10 municipalities with most outbound flights
+@app.route("/api/analytics/top-municipalities")
+def analytics_top_municipalities():
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+        SELECT a.municipality, COUNT(*) AS flightCount,
+               ROUND(AVG(CAST(f.totalFare AS DOUBLE)),2) AS avgFare
+        FROM {tbl} f
+        JOIN airports a ON f.startingAirport = a.iata_code
+        WHERE a.municipality IS NOT NULL AND a.municipality != ''
+        GROUP BY a.municipality
+        ORDER BY flightCount DESC
+        LIMIT 10
+        """
+        _, rows = run_query(sql)
+        return {"municipalities": [clean_row(r) for r in rows], "query": sql}
+    return jsonify(cached_query("top_municipalities", _query))
+
+# II.6  Top 5 regions with most active airports
+@app.route("/api/analytics/top-regions")
+def analytics_top_regions():
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+        SELECT a.iso_region AS region, COUNT(DISTINCT f.startingAirport) AS airportCount,
+               COUNT(*) AS flightCount
+        FROM {tbl} f
+        JOIN airports a ON f.startingAirport = a.iata_code
+        WHERE a.iso_region IS NOT NULL
+        GROUP BY a.iso_region
+        ORDER BY airportCount DESC
+        LIMIT 5
+        """
+        _, rows = run_query(sql)
+        return {"regions": [clean_row(r) for r in rows], "query": sql}
+    return jsonify(cached_query("top_regions", _query))
+
+# II.7  Top 10 most expensive destination airports
+@app.route("/api/analytics/expensive-destinations")
+def analytics_expensive_destinations():
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+        SELECT destinationAirport,
+               ROUND(AVG(CAST(totalFare AS DOUBLE)),2) AS avgFare,
+               COUNT(*) AS flightCount,
+               ROUND(MIN(CAST(totalFare AS DOUBLE)),2) AS minFare,
+               ROUND(MAX(CAST(totalFare AS DOUBLE)),2) AS maxFare
+        FROM {tbl}
+        GROUP BY destinationAirport
+        HAVING COUNT(*) > 100
+        ORDER BY avgFare DESC
+        LIMIT 10
+        """
+        _, rows = run_query(sql)
+        return {"destinations": [clean_row(r) for r in rows], "query": sql}
+    return jsonify(cached_query("expensive_destinations", _query))
+
+# II.8  Top 20 routes with highest non-stop volume
+@app.route("/api/analytics/nonstop-routes")
+def analytics_nonstop_routes():
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+        SELECT CONCAT(startingAirport,' → ',destinationAirport) AS route,
+               SUM(CASE WHEN isNonStop='true' THEN 1 ELSE 0 END) AS nonstopCount,
+               COUNT(*) AS totalFlights,
+               ROUND(SUM(CASE WHEN isNonStop='true' THEN 1 ELSE 0 END)*100.0/COUNT(*),1) AS nonstopPct
+        FROM {tbl}
+        GROUP BY startingAirport, destinationAirport
+        ORDER BY nonstopCount DESC
+        LIMIT 20
+        """
+        _, rows = run_query(sql)
+        return {"routes": [clean_row(r) for r in rows], "query": sql}
+    return jsonify(cached_query("nonstop_routes", _query))
+
+# II.9  Small regional vs large hub airport pricing
+@app.route("/api/analytics/hub-vs-regional")
+def analytics_hub_vs_regional():
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+        SELECT a.type AS airport_type,
+               COUNT(*) AS flightCount,
+               ROUND(AVG(CAST(f.totalFare AS DOUBLE)),2) AS avgFare,
+               ROUND(MIN(CAST(f.totalFare AS DOUBLE)),2) AS minFare,
+               ROUND(MAX(CAST(f.totalFare AS DOUBLE)),2) AS maxFare
+        FROM {tbl} f
+        JOIN airports a ON f.startingAirport = a.iata_code
+        WHERE a.type IN ('large_airport','medium_airport','small_airport')
+        GROUP BY a.type
+        ORDER BY flightCount DESC
+        """
+        _, rows = run_query(sql)
+        return {"types": [clean_row(r) for r in rows], "query": sql}
+    return jsonify(cached_query("hub_vs_regional", _query))
+
+# II.10  Most expensive outbound region/state
+@app.route("/api/analytics/region-pricing")
+def analytics_region_pricing():
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+        SELECT a.iso_region AS region,
+               ROUND(AVG(CAST(f.totalFare AS DOUBLE)),2) AS avgFare,
+               COUNT(*) AS flightCount
+        FROM {tbl} f
+        JOIN airports a ON f.startingAirport = a.iata_code
+        WHERE a.iso_region IS NOT NULL
+        GROUP BY a.iso_region
+        HAVING COUNT(*) > 50
+        ORDER BY avgFare DESC
+        LIMIT 15
+        """
+        _, rows = run_query(sql)
+        return {"regions": [clean_row(r) for r in rows], "query": sql}
+    return jsonify(cached_query("region_pricing", _query))
+
+# II.11  Monopoly routes vs competitive routes price-per-mile
+@app.route("/api/analytics/monopoly-routes")
+def analytics_monopoly_routes():
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+        SELECT competition, COUNT(*) AS routeCount,
+               ROUND(AVG(avgFare),2) AS overallAvgFare,
+               ROUND(AVG(pricePerMile),4) AS avgPricePerMile
+        FROM (
+            SELECT CONCAT(startingAirport,'→',destinationAirport) AS route,
+                   COUNT(DISTINCT segmentsAirlineCode) AS numAirlines,
+                   AVG(CAST(totalFare AS DOUBLE)) AS avgFare,
+                   CASE WHEN AVG(CAST(totalTravelDistance AS DOUBLE)) > 0
+                        THEN AVG(CAST(totalFare AS DOUBLE)) / AVG(CAST(totalTravelDistance AS DOUBLE))
+                        ELSE NULL END AS pricePerMile,
+                   CASE WHEN COUNT(DISTINCT segmentsAirlineCode) = 1 THEN 'Monopoly (1 airline)'
+                        WHEN COUNT(DISTINCT segmentsAirlineCode) >= 3 THEN 'Competitive (3+ airlines)'
+                        ELSE 'Duopoly (2 airlines)' END AS competition
+            FROM {tbl}
+            WHERE totalTravelDistance IS NOT NULL AND CAST(totalTravelDistance AS DOUBLE) > 0
+            GROUP BY startingAirport, destinationAirport
+        ) sub
+        GROUP BY competition
+        ORDER BY competition
+        """
+        _, rows = run_query(sql)
+        return {"data": [clean_row(r) for r in rows], "query": sql}
+    return jsonify(cached_query("monopoly_routes", _query))
+
+# II.12  Top 5 busiest hubs — legacy vs budget carrier pricing
+@app.route("/api/analytics/hub-carriers")
+def analytics_hub_carriers():
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+        SELECT startingAirport AS hub,
+               segmentsAirlineName AS airline,
+               COUNT(*) AS flightCount,
+               ROUND(AVG(CAST(totalFare AS DOUBLE)),2) AS avgFare
+        FROM {tbl}
+        WHERE startingAirport IN (
+            SELECT startingAirport FROM {tbl}
+            GROUP BY startingAirport ORDER BY COUNT(*) DESC LIMIT 5
+        )
+        GROUP BY startingAirport, segmentsAirlineName
+        HAVING COUNT(*) > 50
+        ORDER BY startingAirport, flightCount DESC
+        """
+        _, rows = run_query(sql)
+        return {"carriers": [clean_row(r) for r in rows], "query": sql}
+    return jsonify(cached_query("hub_carriers", _query))
+
+# III.1+III.2+III.3  Aircraft overview — count, top 10, Boeing vs Airbus
+@app.route("/api/analytics/aircraft-overview")
+def analytics_aircraft_overview():
+    def _query():
+        tbl = get_flight_table()
+        sql_count = f"SELECT COUNT(DISTINCT segmentsEquipmentDescription) AS total FROM {tbl} WHERE segmentsEquipmentDescription IS NOT NULL AND segmentsEquipmentDescription != ''"
+        sql_top = f"""
+        SELECT segmentsEquipmentDescription AS aircraft, COUNT(*) AS flightCount
+        FROM {tbl}
+        WHERE segmentsEquipmentDescription IS NOT NULL AND segmentsEquipmentDescription != ''
+        GROUP BY segmentsEquipmentDescription
+        ORDER BY flightCount DESC
+        LIMIT 10
+        """
+        sql_mfr = f"""
+        SELECT
+            SUM(CASE WHEN UPPER(segmentsEquipmentDescription) LIKE '%BOEING%' OR UPPER(segmentsEquipmentDescription) LIKE '%B7%' THEN 1 ELSE 0 END) AS boeing,
+            SUM(CASE WHEN UPPER(segmentsEquipmentDescription) LIKE '%AIRBUS%' OR UPPER(segmentsEquipmentDescription) LIKE '%A3%' THEN 1 ELSE 0 END) AS airbus,
+            COUNT(*) AS total
+        FROM {tbl}
+        WHERE segmentsEquipmentDescription IS NOT NULL AND segmentsEquipmentDescription != ''
+        """
+        c1, r1 = run_query(sql_count)
+        c2, r2 = run_query(sql_top)
+        c3, r3 = run_query(sql_mfr)
+        return {
+            "totalModels": (r1[0].get("total", 0) if r1 else 0) if r1 else 0,
+            "topAircraft": [clean_row(r) for r in r2],
+            "manufacturers": clean_row(r3[0]) if r3 else {},
+            "query": sql_top
+        }
+    return jsonify(cached_query("aircraft_overview", _query))
+
+# III.4  Zero seats vs available seats pricing
+@app.route("/api/analytics/seats-pricing")
+def analytics_seats_pricing():
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+        SELECT
+            CASE WHEN CAST(seatsRemaining AS INT) = 0 THEN 'Zero Seats'
+                 WHEN CAST(seatsRemaining AS INT) BETWEEN 1 AND 3 THEN 'Low (1-3)'
+                 ELSE 'Available (4+)' END AS seatCategory,
+            COUNT(*) AS flightCount,
+            ROUND(AVG(CAST(totalFare AS DOUBLE)),2) AS avgFare,
+            ROUND(MIN(CAST(totalFare AS DOUBLE)),2) AS minFare,
+            ROUND(MAX(CAST(totalFare AS DOUBLE)),2) AS maxFare
+        FROM {tbl}
+        WHERE seatsRemaining IS NOT NULL
+        GROUP BY CASE WHEN CAST(seatsRemaining AS INT) = 0 THEN 'Zero Seats'
+                      WHEN CAST(seatsRemaining AS INT) BETWEEN 1 AND 3 THEN 'Low (1-3)'
+                      ELSE 'Available (4+)' END
+        ORDER BY avgFare DESC
+        """
+        _, rows = run_query(sql)
+        return {"data": [clean_row(r) for r in rows], "query": sql}
+    return jsonify(cached_query("seats_pricing", _query))
+
+# III.5  Runway length vs ticket price
+@app.route("/api/analytics/runway-pricing")
+def analytics_runway_pricing():
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+        SELECT
+            CASE WHEN CAST(r.length_ft AS INT) >= 10000 THEN 'Long (10000+ ft)'
+                 WHEN CAST(r.length_ft AS INT) >= 7000 THEN 'Medium (7000-9999 ft)'
+                 ELSE 'Short (<7000 ft)' END AS runwayCategory,
+            COUNT(*) AS flightCount,
+            ROUND(AVG(CAST(f.totalFare AS DOUBLE)),2) AS avgFare
+        FROM {tbl} f
+        JOIN airports a ON f.destinationAirport = a.iata_code
+        JOIN ext_runways r ON a.ident = r.airport_ident
+        WHERE r.length_ft IS NOT NULL AND CAST(r.length_ft AS INT) > 0
+        GROUP BY CASE WHEN CAST(r.length_ft AS INT) >= 10000 THEN 'Long (10000+ ft)'
+                      WHEN CAST(r.length_ft AS INT) >= 7000 THEN 'Medium (7000-9999 ft)'
+                      ELSE 'Short (<7000 ft)' END
+        ORDER BY avgFare DESC
+        """
+        _, rows = run_query(sql)
+        return {"data": [clean_row(r) for r in rows], "query": sql}
+    return jsonify(cached_query("runway_pricing", _query))
+
+# III.6  Aircraft model pricing — wide-body vs regional
+@app.route("/api/analytics/aircraft-pricing")
+def analytics_aircraft_pricing():
+    def _query():
+        tbl = get_flight_table()
+        sql = f"""
+        SELECT
+            CASE WHEN UPPER(segmentsEquipmentDescription) LIKE '%777%' OR UPPER(segmentsEquipmentDescription) LIKE '%787%'
+                      OR UPPER(segmentsEquipmentDescription) LIKE '%A350%' OR UPPER(segmentsEquipmentDescription) LIKE '%A330%'
+                      OR UPPER(segmentsEquipmentDescription) LIKE '%A380%' OR UPPER(segmentsEquipmentDescription) LIKE '%767%'
+                 THEN 'Wide-body'
+                 WHEN UPPER(segmentsEquipmentDescription) LIKE '%ERJ%' OR UPPER(segmentsEquipmentDescription) LIKE '%CRJ%'
+                      OR UPPER(segmentsEquipmentDescription) LIKE '%EMBRAER%' OR UPPER(segmentsEquipmentDescription) LIKE '%REGIONAL%'
+                 THEN 'Regional Jet'
+                 WHEN UPPER(segmentsEquipmentDescription) LIKE '%737%' OR UPPER(segmentsEquipmentDescription) LIKE '%A320%'
+                      OR UPPER(segmentsEquipmentDescription) LIKE '%A321%' OR UPPER(segmentsEquipmentDescription) LIKE '%A319%'
+                 THEN 'Narrow-body'
+                 ELSE 'Other' END AS aircraftCategory,
+            COUNT(*) AS flightCount,
+            ROUND(AVG(CAST(totalFare AS DOUBLE)),2) AS avgFare,
+            ROUND(AVG(CAST(totalTravelDistance AS DOUBLE)),0) AS avgDistance
+        FROM {tbl}
+        WHERE segmentsEquipmentDescription IS NOT NULL AND segmentsEquipmentDescription != ''
+        GROUP BY CASE WHEN UPPER(segmentsEquipmentDescription) LIKE '%777%' OR UPPER(segmentsEquipmentDescription) LIKE '%787%'
+                      OR UPPER(segmentsEquipmentDescription) LIKE '%A350%' OR UPPER(segmentsEquipmentDescription) LIKE '%A330%'
+                      OR UPPER(segmentsEquipmentDescription) LIKE '%A380%' OR UPPER(segmentsEquipmentDescription) LIKE '%767%'
+                 THEN 'Wide-body'
+                 WHEN UPPER(segmentsEquipmentDescription) LIKE '%ERJ%' OR UPPER(segmentsEquipmentDescription) LIKE '%CRJ%'
+                      OR UPPER(segmentsEquipmentDescription) LIKE '%EMBRAER%' OR UPPER(segmentsEquipmentDescription) LIKE '%REGIONAL%'
+                 THEN 'Regional Jet'
+                 WHEN UPPER(segmentsEquipmentDescription) LIKE '%737%' OR UPPER(segmentsEquipmentDescription) LIKE '%A320%'
+                      OR UPPER(segmentsEquipmentDescription) LIKE '%A321%' OR UPPER(segmentsEquipmentDescription) LIKE '%A319%'
+                 THEN 'Narrow-body'
+                 ELSE 'Other' END
+        ORDER BY avgFare DESC
+        """
+        _, rows = run_query(sql)
+        return {"data": [clean_row(r) for r in rows], "query": sql}
+    return jsonify(cached_query("aircraft_pricing", _query))
+
+
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     # Initialize Spark on startup

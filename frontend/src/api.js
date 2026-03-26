@@ -22,6 +22,24 @@ export const analyticsBookingWindow = () => api.get('/analytics/booking-window')
 export const analyticsWeekendMidweek = () => api.get('/analytics/weekend-midweek');
 export const analyticsEconomyGap = () => api.get('/analytics/economy-gap');
 
+// Analytics — Section I.10, II, III (new)
+export const analyticsNonstopPremium = () => api.get('/analytics/nonstop-premium');
+export const analyticsNetworkOverview = () => api.get('/analytics/network-overview');
+export const analyticsLongestFlights = () => api.get('/analytics/longest-flights');
+export const analyticsTopRoutes = () => api.get('/analytics/top-routes');
+export const analyticsTopMunicipalities = () => api.get('/analytics/top-municipalities');
+export const analyticsTopRegions = () => api.get('/analytics/top-regions');
+export const analyticsExpensiveDestinations = () => api.get('/analytics/expensive-destinations');
+export const analyticsNonstopRoutes = () => api.get('/analytics/nonstop-routes');
+export const analyticsHubVsRegional = () => api.get('/analytics/hub-vs-regional');
+export const analyticsRegionPricing = () => api.get('/analytics/region-pricing');
+export const analyticsMonopolyRoutes = () => api.get('/analytics/monopoly-routes');
+export const analyticsHubCarriers = () => api.get('/analytics/hub-carriers');
+export const analyticsAircraftOverview = () => api.get('/analytics/aircraft-overview');
+export const analyticsSeatsPricing = () => api.get('/analytics/seats-pricing');
+export const analyticsRunwayPricing = () => api.get('/analytics/runway-pricing');
+export const analyticsAircraftPricing = () => api.get('/analytics/aircraft-pricing');
+
 // Flight Splicing
 export const flightSplicing = (params) => api.get('/flight-splicing', { params });
 
