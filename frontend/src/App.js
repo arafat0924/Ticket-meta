@@ -12,9 +12,14 @@ import './App.css';
 function AppContent() {
   const location = useLocation();
   const isLanding = location.pathname === '/';
+  const isOptimizedRoute = location.pathname === '/optimized-route';
+
+  let appClass = 'app';
+  if (isLanding) appClass += ' landing-active';
+  if (isOptimizedRoute) appClass += ' optimized-active';
 
   return (
-    <div className={`app${isLanding ? ' landing-active' : ''}`}>
+    <div className={appClass}>
       {!isLanding && <Navbar />}
       <Routes>
         <Route path="/" element={<Landing />} />
