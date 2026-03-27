@@ -10,7 +10,7 @@ function Navbar() {
     healthCheck()
       .then(res => setHealth(res.data.status === 'connected' ? 'connected' : 'error'))
       .catch(() => setHealth('error'));
-    
+
     const interval = setInterval(() => {
       healthCheck()
         .then(res => setHealth(res.data.status === 'connected' ? 'connected' : 'error'))
