@@ -1,6 +1,6 @@
 """
 Flask API for Flight Search - connects to Hive via PySpark (ticketmeta09)
-Deploy this file on your VM (192.168.56.101)
+Deploy this file on your VM (192.168.56.104)
 """
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -12,6 +12,28 @@ import threading
 
 app = Flask(__name__)
 CORS(app)
+
+# ── Permanent VM Environment Setup ──────────────────────────────────────────
+# These ensure Hadoop/Spark/Hive work without needing external helper scripts.
+if os.name != 'nt':  # Only on Linux (VM)
+    _env = {
+        "JAVA_HOME": "/usr/lib/jvm/java-11-openjdk-amd64",
+        "HADOOP_HOME": "/opt/hadoop-3.3.6",
+        "HADOOP_CONF_DIR": "/opt/hadoop-3.3.6/etc/hadoop",
+        "SPARK_HOME": "/opt/spark-3.5.3",
+        "HIVE_HOME": "/opt/apache-hive-4.0.1",
+    }
+    for k, v in _env.items():
+        if k not in os.environ or not os.environ[k]:
+            os.environ[k] = v
+    # Extend PATH
+    extra_paths = [
+        os.path.join(_env["HADOOP_HOME"], "bin"),
+        os.path.join(_env["HADOOP_HOME"], "sbin"),
+        os.path.join(_env["SPARK_HOME"], "bin"),
+        os.path.join(_env["HIVE_HOME"], "bin"),
+    ]
+    os.environ["PATH"] = ":".join(extra_paths) + ":" + os.environ.get("PATH", "")
 
 # Attempt to import PySpark gracefully
 try:
@@ -73,19 +95,19 @@ def get_spark():
             print("WARNING: Running in local mode. Hive/YARN connections disabled.")
             builder = builder.master("local[*]")
         else:
+            # Simple config: builtin Hive, MySQL JDBC for metastore, YARN
             builder = (
                 builder.master("yarn")
                 .config("spark.submit.deployMode", "client")
                 .config("spark.driver.extraClassPath", MYSQL_DRIVER)
                 .config("spark.executor.extraClassPath", MYSQL_DRIVER)
-                .config("spark.sql.hive.metastore.jars", "builtin")
                 .enableHiveSupport()
             )
             
         # Common configs
         builder = (
             builder.config("spark.sql.shuffle.partitions", "8")
-            .config("spark.driver.memory", "2g")
+            .config("spark.driver.memory", "4g")
             .config("spark.executor.memory", "2g")
             .config("spark.executor.instances", "2")
             .config("spark.yarn.queue", "default")
@@ -128,7 +150,9 @@ def run_query(sql):
     """Execute a Spark SQL / HiveQL query and return rows + column names."""
     spark = get_spark()
     if spark is None:
-        raise Exception("PySpark is not available. Please install PySpark to execute queries.")
+        # Return empty results in local dev mode (no PySpark)
+        print(f"[LOCAL MODE] Skipping query (no PySpark): {sql[:100]}...")
+        return [], []
     
     try:
         df = spark.sql(sql)
@@ -546,32 +570,42 @@ def analytics_economy_gap():
 
 # ---------------------------------------------------------------------------
 # 5g. Flight Splicing Engine – Find cost-saving virtual itineraries
-#     GET /api/flight-splicing?origin=ATL&dest=SFO&maxLayover=4&minLayover=1
+#     GET /api/flight-splicing?origin=ATL&dest=SFO&date=2024-03-15
+#     Intelligent Flight Splicing with auto layover (90min–8hr),
+#     cross-alliance detection, and savings-only filtering.
 # ---------------------------------------------------------------------------
 @app.route("/api/flight-splicing")
 def flight_splicing():
     origin = request.args.get("origin", "").upper()
     dest = request.args.get("dest", "").upper()
-    max_layover = int(request.args.get("maxLayover", 4))
-    min_layover = float(request.args.get("minLayover", 1.5))
-    limit = int(request.args.get("limit", 20))
+    flight_date = request.args.get("date", "").strip()
+    limit = int(request.args.get("limit", 30))
+
+    # Hardcoded realistic layover boundaries
+    MIN_LAYOVER_HRS = 1.5   # 90 minutes minimum for safe connection
+    MAX_LAYOVER_HRS = 8     # 8 hours maximum for user experience
 
     if not origin or not dest:
         return jsonify({"error": "origin and dest are required"}), 400
 
     tbl = get_flight_table()
 
-    # Step 1: Find best direct flight price for baseline
+    # Optional date filter
+    date_filter = f"AND flightDate = '{flight_date}'" if flight_date else ""
+
+    # Step 1: Direct flight baseline
     direct_sql = f"""
         SELECT ROUND(MIN(CAST(totalFare AS DOUBLE)), 2) AS bestDirect,
                ROUND(AVG(CAST(totalFare AS DOUBLE)), 2) AS avgDirect,
                COUNT(*) AS directCount
         FROM {tbl}
         WHERE startingAirport = '{origin}' AND destinationAirport = '{dest}'
+        {date_filter}
     """
 
-    # Step 2: Find spliced itineraries via intermediate airports
-    # Leg 1: origin → hub, Leg 2: hub → dest (same flightDate)
+    # Step 2: Intelligent flight splicing — find disconnected segments
+    # that can be combined into a single journey on the same day.
+    # Enforces 90-min to 8-hr layover window automatically.
     splice_sql = f"""
         SELECT
             leg1.startingAirport AS origin,
@@ -599,9 +633,10 @@ def flight_splicing():
           AND leg2.isNonStop = 'True'
           AND (CAST(leg2.segmentsDepartureTimeEpochSeconds AS BIGINT) -
                CAST(leg1.segmentsArrivalTimeEpochSeconds AS BIGINT)) / 3600.0
-              BETWEEN {min_layover} AND {max_layover}
+              BETWEEN {MIN_LAYOVER_HRS} AND {MAX_LAYOVER_HRS}
+          {date_filter.replace('flightDate', 'leg1.flightDate')}
         ORDER BY combinedFare ASC
-        LIMIT {limit}
+        LIMIT {limit * 2}
     """
 
     try:
@@ -613,18 +648,36 @@ def flight_splicing():
         _, splice_rows = run_query(splice_sql)
         itineraries = [clean_row(r) for r in splice_rows]
 
-        # Calculate savings for each itinerary
+        # Calculate savings & detect cross-alliance routes
         best_direct = direct.get("bestDirect") or direct.get("bestdirect")
-        if best_direct:
+        savings_only = []
+        if best_direct and float(best_direct) > 0:
+            bd = float(best_direct)
             for it in itineraries:
-                combined = it.get("combinedFare") or it.get("combinedfare") or 0
-                it["savings"] = round(float(best_direct) - float(combined), 2)
-                it["savingsPercent"] = round((float(best_direct) - float(combined)) / float(best_direct) * 100, 1) if float(best_direct) > 0 else 0
+                combined = float(it.get("combinedFare") or it.get("combinedfare") or 0)
+                saving = round(bd - combined, 2)
+                pct = round((bd - combined) / bd * 100, 1)
+                it["savings"] = saving
+                it["savingsPercent"] = pct
+
+                # Cross-Alliance detection: flag when airlines differ
+                a1 = (it.get("airline1") or it.get("Airline1") or "").strip().lower()
+                a2 = (it.get("airline2") or it.get("Airline2") or "").strip().lower()
+                it["crossAlliance"] = (a1 != a2 and a1 != "" and a2 != "")
+
+                # Only keep itineraries with positive savings
+                if saving > 0:
+                    savings_only.append(it)
+
+        # Sort by savings descending (best deals first), limit results
+        savings_only.sort(key=lambda x: x.get("savings", 0), reverse=True)
+        savings_only = savings_only[:limit]
 
         return jsonify({
             "origin": origin, "dest": dest,
             "direct": direct,
-            "itineraries": itineraries,
+            "itineraries": savings_only,
+            "totalScanned": len(itineraries),
             "directQuery": direct_sql.strip(),
             "spliceQuery": splice_sql.strip()
         })
