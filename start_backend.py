@@ -3,7 +3,7 @@ import paramiko, time
 
 client = paramiko.SSHClient()
 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-client.connect("node-master", username="azmine", password="Ubuntu71$", timeout=60)
+client.connect("192.168.56.104", username="arafat", password="092424", timeout=60)
 
 def ssh(cmd, t=30):
     print(f"$ {cmd}")
