@@ -37,7 +37,7 @@ if os.name != 'nt':  # Only on Linux (VM)
 
 # Attempt to import PySpark gracefully
 try:
-    from pyspark.sql import SparkSession
+    from pyspark.sql import SparkSession # type: ignore
     HAS_PYSPARK = True
 except ImportError:
     HAS_PYSPARK = False
@@ -104,13 +104,16 @@ def get_spark():
                 .enableHiveSupport()
             )
             
-        # Common configs
+        # Common configs (conservative while ORC job may be running)
         builder = (
             builder.config("spark.sql.shuffle.partitions", "8")
-            .config("spark.driver.memory", "4g")
-            .config("spark.executor.memory", "2g")
-            .config("spark.executor.instances", "2")
+            .config("spark.driver.memory", "1g")
+            .config("spark.executor.memory", "1g")
+            .config("spark.executor.instances", "1")
+            .config("spark.executor.cores", "1")
             .config("spark.yarn.queue", "default")
+            .config("spark.network.timeout", "600s")
+            .config("spark.executor.heartbeatInterval", "120s")
         )
 
         _spark = builder.getOrCreate()
