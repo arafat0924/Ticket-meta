@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
+import {
   ArrowUpRight, Plus, Mic, Volume2, ArrowUp, Star,
   X, Facebook, Twitter, Instagram, Linkedin, Plane,
   Search, MapPin, Calendar, BarChart3, MessageSquare, Building2
@@ -101,7 +101,7 @@ function Landing() {
             <a href="#hero" className="tl-nav-link active"><Plane size={14} /> Home</a>
             <span className="tl-nav-link" onClick={() => navigate('/flights')}><Search size={14} /> Flights</span>
             <span className="tl-nav-link" onClick={() => navigate('/analytics')}><BarChart3 size={14} /> Analytics</span>
-            <span className="tl-nav-link" onClick={() => navigate('/flight-splicing')}><MapPin size={14} /> Splicing</span>
+            <span className="tl-nav-link" onClick={() => navigate('/optimized-route')}><MapPin size={14} /> Optimized Route</span>
             <span className="tl-nav-link" onClick={() => navigate('/chatbot')}><MessageSquare size={14} /> AI Chat</span>
             <span className="tl-nav-link" onClick={() => navigate('/enrichment')}><Building2 size={14} /> Enrichment</span>
           </div>
