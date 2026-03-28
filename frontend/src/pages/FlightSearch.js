@@ -1,5 +1,5 @@
-import React, { useState, useTransition, useId, useCallback, useMemo } from 'react';
-import { Search, Plane, ChevronDown, ChevronUp, MoreHorizontal, DollarSign, Star, CheckCircle, XCircle, Armchair, Eye } from 'lucide-react';
+import React, { useState, useTransition, useId, useCallback, useMemo, useEffect, useRef } from 'react';
+import { Search, Plane, ChevronDown, ChevronUp, MoreHorizontal, DollarSign, Star, CheckCircle, XCircle, Armchair, Eye, AlertTriangle, Clock } from 'lucide-react';
 import { searchFlights } from '../api';
 
 // Custom Dropdown Component
@@ -33,7 +33,7 @@ function CustomSelect({ label, value, onChange, options }) {
               onClick={() => { onChange(opt.value); setIsOpen(false); }}
             >
               {opt.label}
-              {opt.value === value && <span className="custom-select-check">✓</span>}
+              {opt.value === value && <span className="custom-select-check" style={{ display: 'inline-flex', alignItems: 'center' }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>}
             </div>
           ))}
         </div>
@@ -65,17 +65,18 @@ function FlightSearch() {
   const limitId = useId();
   const nonstopId = useId();
 
-  const handleSearch = useCallback(async (e) => {
-    e.preventDefault();
+  const doSearch = useCallback(async (sortOverride) => {
     if (!origin || !dest) return;
     setError('');
     setFlights([]);
     setSearched(true);
     setOpenMenu(null);
 
+    const sortToUse = sortOverride || sort;
+
     startTransition(async () => {
       try {
-        const res = await searchFlights({ origin, dest, nonstop, sort, limit, date });
+        const res = await searchFlights({ origin, dest, nonstop, sort: sortToUse, limit, date });
         setFlights(res.data.flights || []);
         setQuery(res.data.query || '');
       } catch (err) {
@@ -84,6 +85,20 @@ function FlightSearch() {
       }
     });
   }, [origin, dest, nonstop, sort, limit, date]);
+
+  const handleSearch = useCallback((e) => {
+    e.preventDefault();
+    doSearch();
+  }, [doSearch]);
+
+  // Re-fetch when sort changes (only if already searched)
+  const prevSort = useRef(sort);
+  useEffect(() => {
+    if (prevSort.current !== sort && searched && origin && dest) {
+      prevSort.current = sort;
+      doSearch(sort);
+    }
+  }, [sort, searched, origin, dest, doSearch]);
 
   const formatTime = (raw) => {
     if (!raw) return '--:--';
@@ -121,13 +136,43 @@ function FlightSearch() {
     return 'Connecting';
   };
 
-  const filteredFlights = flights.filter(f => {
+  const getFare = (f) => Number(f.totalfare || f.totalFare || 0);
+  const getDurMins = (f) => {
+    const dur = f.travelduration || f.travelDuration || '';
+    const match = dur.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+    if (match) return (parseInt(match[1] || '0', 10) * 60) + parseInt(match[2] || '0', 10);
+    return 99999;
+  };
+  const isNonstopFlight = (f) => (f.isnonstop || f.isNonStop) === 'True';
+
+  // Filter by status
+  const statusFiltered = flights.filter(f => {
     if (statusFilter === 'All') return true;
     const status = getFlightStatus(f);
     if (statusFilter === 'Nonstop') return status === 'success';
     if (statusFilter === 'Connecting') return status === 'pending';
     if (statusFilter === 'Few Left') return status === 'critical';
     return true;
+  });
+
+  // Sort by selected criteria
+  const filteredFlights = [...statusFiltered].sort((a, b) => {
+    if (sort === 'cheapest') {
+      return getFare(a) - getFare(b);
+    }
+    if (sort === 'fastest') {
+      return getDurMins(a) - getDurMins(b);
+    }
+    if (sort === 'best') {
+      // Best = nonstop first, then cheapest + fastest combined
+      const nsA = isNonstopFlight(a) ? 0 : 1;
+      const nsB = isNonstopFlight(b) ? 0 : 1;
+      if (nsA !== nsB) return nsA - nsB;
+      const scoreA = getFare(a) * 0.6 + getDurMins(a) * 0.4;
+      const scoreB = getFare(b) * 0.6 + getDurMins(b) * 0.4;
+      return scoreA - scoreB;
+    }
+    return 0;
   });
 
   return (
@@ -178,14 +223,14 @@ function FlightSearch() {
         </div>
       </form>
 
-      {error && <div className="error-banner">⚠ {error}</div>}
+      {error && <div className="error-banner" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><AlertTriangle size={16} /> {error}</div>}
 
       {isPending && (
         <div className="loading-container">
           <div className="spinner" />
           <div className="loading-text">
             Scanning flight database...
-            <span className="warning">⏱ Hive queries may take 2–8 minutes on 80M rows</span>
+            <span className="warning"><Clock size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> Hive queries may take 2–8 minutes on 80M rows</span>
           </div>
         </div>
       )}

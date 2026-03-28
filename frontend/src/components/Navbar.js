@@ -24,7 +24,7 @@ function Navbar() {
     <nav className="tl-nav tl-nav-pages">
       <div className="tl-nav-inner">
         <NavLink to="/" className="tl-nav-logo">
-          <div className="tl-logo-icon"><Plane size={16} /></div>
+          <img src="/logo192.png" alt="Data Turbulence" className="tl-logo-img" />
           <span className="tl-logo-text">Data Turbulence</span>
         </NavLink>
         <div className="tl-nav-links">

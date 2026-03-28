@@ -53,6 +53,9 @@ export const enrichmentBrand = () => api.get('/enrichment/brand');
 export const enrichmentRail = () => api.get('/enrichment/rail');
 export const enrichmentGhost = () => api.get('/enrichment/ghost');
 
+// Recommendation engine (direct call — no AI routing)
+export const getRecommendations = (params) => api.get('/recommend', { params });
+
 // Legacy non-streaming chatbot (fallback)
 export const chatbot = (question, history = []) => api.post('/chatbot', { question, history });
 
@@ -92,11 +95,14 @@ export function chatbotStream(question, history = [], onEvent) {
         buffer = lines.pop() || ''; // keep incomplete line in buffer
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('data: ')) {
             try {
-              const event = JSON.parse(line.slice(6));
+              const event = JSON.parse(trimmed.slice(6));
+              console.log('[SSE Event]', event.type, event.type === 'answer' ? `results: ${event.results?.length || 0}` : '');
               onEvent(event);
-            } catch {
+            } catch (e) {
+              console.warn('[SSE Parse Error]', e.message, 'line length:', trimmed.length);
               // ignore parse errors on partial chunks
             }
           }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronDown, ChevronUp, RefreshCw, ArrowLeft, TrendingUp, BarChart3, Calendar, Clock, Sun, Layers, Globe, MapPin, Navigation, Plane, Users, Building2, Armchair, Ruler, Cpu } from 'lucide-react';
+import { ChevronDown, ChevronUp, RefreshCw, ArrowLeft, TrendingUp, BarChart3, Calendar, Clock, Sun, Layers, Globe, MapPin, Navigation, Plane, Users, Building2, Armchair, Ruler, Cpu, DollarSign, Tag, Gem, Ban, Sunrise, Briefcase, AlertTriangle, Check } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell, Area, AreaChart
@@ -20,8 +20,8 @@ const COLORS = ['#f5a623', '#22c55e', '#3b82f6', '#ef4444', '#a855f7', '#ec4899'
 const DarkTooltip = ({ active, payload, label }) => {
   if (active && payload?.length) {
     return (
-      <div style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 10, padding: '12px 16px', fontSize: 13, color: '#c0c0c0', boxShadow: '0 0 20px rgba(0,0,0,0.5)' }}>
-        <div style={{ fontWeight: 700, marginBottom: 6 }}>{label}</div>
+      <div style={{ background: 'rgba(10,15,30,0.95)', border: '1px solid rgba(110,198,255,0.15)', borderRadius: 12, padding: '14px 18px', fontSize: 13, color: '#c0c0c0', boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(110,198,255,0.05) inset', backdropFilter: 'blur(16px)', transform: 'scale(1.02)', transition: 'all 0.2s ease', animation: 'fadeInUp 0.2s ease-out' }}>
+        <div style={{ fontWeight: 700, marginBottom: 6, color: '#e8f0ff' }}>{label}</div>
         {payload.map((p, i) => (
           <div key={i} style={{ color: p.color, marginBottom: 2 }}>
             {p.name}: {typeof p.value === 'number' ? (p.name.toLowerCase().includes('fare') || p.name.toLowerCase().includes('price') ? `$${p.value.toFixed(2)}` : p.value.toLocaleString()) : p.value}
@@ -540,7 +540,7 @@ function AnalyticsDashboard() {
       <div className="page-container">
         <title>Analytics Dashboard — Data Turbulence</title>
         <div className="page-hero">
-          <h1>📊 Analytics Dashboard</h1>
+          <h1><BarChart3 size={30} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 10 }} /> Analytics Dashboard</h1>
           <p>Choose an analytics section to explore. Data loads only when you open a section — fast & efficient.</p>
         </div>
 
@@ -571,7 +571,7 @@ function AnalyticsDashboard() {
 
                 <div className="analytics-card-footer">
                   <span style={{ color: card.color, fontWeight: 600, fontSize: 14 }}>Explore →</span>
-                  {isCached && <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, background: '#22c55e15', padding: '2px 8px', borderRadius: 6 }}>✓ Cached</span>}
+                  {isCached && <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, background: '#22c55e15', padding: '2px 8px', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Check size={11} /> Cached</span>}
                 </div>
               </div>
             );
@@ -637,7 +637,7 @@ function AnalyticsDashboard() {
       )}
 
       {/* Error */}
-      {error && <div className="error-banner">⚠ {error}</div>}
+      {error && <div className="error-banner" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><AlertTriangle size={16} /> {error}</div>}
 
       {/* ─── SECTION CONTENT ─── */}
       {activeSection === 'overview' && sectionData && <OverviewSection data={sectionData} g={g} />}
@@ -695,15 +695,15 @@ function OverviewSection({ data, g }) {
   return (
     <>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
-        <StatCard label="Total Flights" value={g(data, 'totalFlights').toLocaleString()} icon="✈️" color="#3b82f6" />
-        <StatCard label="Avg Fare" value={`$${g(data, 'avgFare').toFixed(2)}`} icon="💰" color="#f5a623" />
-        <StatCard label="Min Fare" value={`$${g(data, 'minFare').toFixed(2)}`} icon="🏷️" color="#22c55e" />
-        <StatCard label="Max Fare" value={`$${g(data, 'maxFare').toFixed(2)}`} icon="💎" color="#ef4444" />
+        <StatCard label="Total Flights" value={g(data, 'totalFlights').toLocaleString()} icon={<Plane size={22} />} color="#3b82f6" />
+        <StatCard label="Avg Fare" value={`$${g(data, 'avgFare').toFixed(2)}`} icon={<DollarSign size={22} />} color="#f5a623" />
+        <StatCard label="Min Fare" value={`$${g(data, 'minFare').toFixed(2)}`} icon={<Tag size={22} />} color="#22c55e" />
+        <StatCard label="Max Fare" value={`$${g(data, 'maxFare').toFixed(2)}`} icon={<Gem size={22} />} color="#ef4444" />
       </div>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
-        <StatCard label="Avg Refundable" value={`$${g(data, 'avgFareRefundable').toFixed(2)}`} sub={`${g(data, 'refundableCount').toLocaleString()} tickets`} color="#22c55e" icon="🔄" />
-        <StatCard label="Avg Non-Refundable" value={`$${g(data, 'avgFareNonRefundable').toFixed(2)}`} sub={`${g(data, 'nonRefundableCount').toLocaleString()} tickets`} color="#ef4444" icon="🚫" />
-        <StatCard label="Flexibility Premium" value={`$${(g(data, 'avgFareRefundable') - g(data, 'avgFareNonRefundable')).toFixed(2)}`} sub="refundable − non-refundable" color="#a855f7" icon="📈" />
+        <StatCard label="Avg Refundable" value={`$${g(data, 'avgFareRefundable').toFixed(2)}`} sub={`${g(data, 'refundableCount').toLocaleString()} tickets`} color="#22c55e" icon={<RefreshCw size={22} />} />
+        <StatCard label="Avg Non-Refundable" value={`$${g(data, 'avgFareNonRefundable').toFixed(2)}`} sub={`${g(data, 'nonRefundableCount').toLocaleString()} tickets`} color="#ef4444" icon={<Ban size={22} />} />
+        <StatCard label="Flexibility Premium" value={`$${(g(data, 'avgFareRefundable') - g(data, 'avgFareNonRefundable')).toFixed(2)}`} sub="refundable − non-refundable" color="#a855f7" icon={<TrendingUp size={22} />} />
       </div>
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         <div className="chart-container" style={{ flex: 1, minWidth: 300 }}>
@@ -738,7 +738,7 @@ function TopAirlinesSection({ data }) {
       <ResponsiveContainer width="100%" height={480}>
         <BarChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 80 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-          <XAxis dataKey="name" stroke="#333" fontSize={11} angle={-35} textAnchor="end" height={100} />
+          <XAxis dataKey="name" stroke="#8899aa" fontSize={11} angle={-35} textAnchor="end" height={100} />
           <YAxis yAxisId="left" stroke="#f5a623" tickFormatter={(v) => `$${v}`} />
           <YAxis yAxisId="right" orientation="right" stroke="#3b82f6" tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : v} />
           <Tooltip content={<DarkTooltip />} />
@@ -764,8 +764,8 @@ function DayOfWeekSection({ data }) {
         <ResponsiveContainer width="100%" height={320}>
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-            <XAxis dataKey="day" stroke="#333" fontSize={12} />
-            <YAxis stroke="#333" tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : `${(v/1e3).toFixed(0)}K`} />
+            <XAxis dataKey="day" stroke="#8899aa" fontSize={12} />
+            <YAxis stroke="#8899aa" tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : `${(v/1e3).toFixed(0)}K`} />
             <Tooltip content={<DarkTooltip />} />
             <Bar dataKey="flights" name="Flights" fill="#3b82f6" radius={[4,4,0,0]}>
               {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
@@ -778,8 +778,8 @@ function DayOfWeekSection({ data }) {
         <ResponsiveContainer width="100%" height={320}>
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-            <XAxis dataKey="day" stroke="#333" fontSize={12} />
-            <YAxis stroke="#333" tickFormatter={(v) => `$${v}`} />
+            <XAxis dataKey="day" stroke="#8899aa" fontSize={12} />
+            <YAxis stroke="#8899aa" tickFormatter={(v) => `$${v}`} />
             <Tooltip content={<DarkTooltip />} />
             <Bar dataKey="avgFare" name="Avg Fare" fill="#f5a623" radius={[4,4,0,0]}>
               {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
@@ -803,7 +803,7 @@ function WeekendMidweekSection({ data }) {
             value={`$${Number(w.avgFare || w.avgfare || 0).toFixed(2)}`}
             sub={`${Number(w.flightCount || w.flightcount || 0).toLocaleString()} flights | Min $${Number(w.minFare || w.minfare || 0).toFixed(0)} | Max $${Number(w.maxFare || w.maxfare || 0).toFixed(0)}`}
             color={isWeekend ? '#ef4444' : '#22c55e'}
-            icon={isWeekend ? '🌅' : '💼'}
+            icon={isWeekend ? <Sunrise size={22} /> : <Briefcase size={22} />}
           />
         );
       })}
@@ -837,8 +837,8 @@ function BookingWindowSection({ data }) {
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-            <XAxis dataKey="days" stroke="#333" fontSize={12} label={{ value: 'Days Before Departure', position: 'insideBottom', offset: -5, fill: '#555' }} />
-            <YAxis stroke="#333" tickFormatter={(v) => `$${v}`} />
+            <XAxis dataKey="days" stroke="#8899aa" fontSize={12} label={{ value: 'Days Before Departure', position: 'insideBottom', offset: -5, fill: '#8899aa' }} />
+            <YAxis stroke="#8899aa" tickFormatter={(v) => `$${v}`} />
             <Tooltip content={<DarkTooltip />} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
             <Area type="monotone" dataKey="avgFare" name="Avg Fare" stroke="#f5a623" fill="url(#bwGradAvg)" strokeWidth={2} />
@@ -863,8 +863,8 @@ function EconomyGapSection({ data }) {
         <ResponsiveContainer width="100%" height={450}>
           <BarChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 80 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-            <XAxis dataKey="route" stroke="#333" fontSize={10} angle={-40} textAnchor="end" height={100} />
-            <YAxis stroke="#333" tickFormatter={(v) => `$${v}`} />
+            <XAxis dataKey="route" stroke="#8899aa" fontSize={10} angle={-40} textAnchor="end" height={100} />
+            <YAxis stroke="#8899aa" tickFormatter={(v) => `$${v}`} />
             <Tooltip content={<DarkTooltip />} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
             <Bar dataKey="basic" name="Basic Economy" fill="#3b82f6" radius={[4,4,0,0]} />

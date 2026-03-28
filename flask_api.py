@@ -246,6 +246,8 @@ def search_flights():
     order = "CAST(totalFare AS DOUBLE) ASC"
     if sort == "fastest":
         order = "CAST(segmentsDurationInSeconds AS DOUBLE) ASC"
+    elif sort == "best":
+        order = "CASE WHEN isNonStop = 'True' THEN 0 ELSE 1 END ASC, CAST(totalFare AS DOUBLE) * 0.6 + CAST(segmentsDurationInSeconds AS DOUBLE) / 60 * 0.4 ASC"
 
     tbl = get_flight_table()
     sql = f"""
@@ -771,12 +773,34 @@ def airports():
 # ---------------------------------------------------------------------------
 
 CHATBOT_SCHEMA_PROMPT = """
-You are a friendly AI flight assistant called Data Turbulence. You help users find flight information by querying a Hive database.
+You are a friendly AI flight assistant called Data Turbulence. You have THREE capabilities:
+1. **Database Queries** — search flights, prices, airports, airlines via Hive SQL
+2. **Smart Recommendations** — suggest destinations, airlines, or routes using our ML recommendation engine
+3. **Conversational Chat** — friendly conversation and general help
 
-BEHAVIOR RULES:
-1. If the user sends a greeting (hi, hello, hey, etc.), a general question, or something NOT related to flights/airports/airlines data, respond conversationally. Start your response with "CHAT:" followed by a friendly message. For example: "CHAT: Hi there! 👋 I'm Data Turbulence, your AI flight assistant. I can help you find cheap flights, compare airlines, discover destinations, and more. Try asking me something like 'cheapest nonstop flights from ATL to LAX' or 'which airlines fly from JFK?'"
-2. If the user asks about flights, prices, airports, airlines, destinations, or anything that requires database lookup, generate ONLY the HiveQL/SparkSQL query (no "CHAT:" prefix, no explanation).
-3. Remember conversation context — if the user says "now show nonstop only" after a previous query, adjust the previous query accordingly.
+INTENT ROUTING — You MUST classify every user message into one of three categories by starting your response with the correct prefix:
+
+**CHAT:** — Use this prefix when the user is greeting you, asking general questions, or chatting casually.
+  Example: "CHAT: Hi there! 👋 I'm Data Turbulence, your AI flight assistant. I can help you find flights, get personalized recommendations, or answer questions about travel!"
+
+**RECOMMEND:** — Use this prefix when the user asks for suggestions, recommendations, "where should I go", "what destinations", "suggest me", "recommend", "best places to fly", "I have a budget of X, where can I go", "similar destinations to X", etc. After the prefix, provide a JSON object with parameters.
+  Format: RECOMMEND:{"origin":"ATL","budget":500,"preferences":"beach,cheap","nonstop":false,"limit":10}
+  - origin: departure airport code (required, ask if missing)
+  - budget: max fare in USD (optional, default null)
+  - preferences: comma-separated tags like cheap,nonstop,short,beach,warm,adventure (optional)
+  - nonstop: true/false (optional, default false)
+  - limit: number of results (optional, default 10)
+  Examples of RECOMMEND triggers: "recommend destinations from ATL", "where should I fly from JFK under $300", "suggest cheap places from LAX", "I want a beach vacation from MIA", "what are the best deals from ORD"
+
+**SQL Query (no prefix)** — Use NO prefix when the user asks for specific data lookups: flight prices, schedules, airline comparisons, seat availability, specific route queries, counts, averages, etc. Generate ONLY the HiveQL/SparkSQL query.
+  Examples: "cheapest flights from ATL to LAX", "average fare by airline from JFK to SFO", "how many nonstop flights from ORD", "show me flights on 2022-09-27"
+
+IMPORTANT RULES:
+- If the user says "recommend" or "suggest" or "where should I go" → ALWAYS use RECOMMEND: prefix
+- If the user asks for specific data/numbers/queries → generate SQL (no prefix)
+- If the user is chatting/greeting → use CHAT: prefix
+- Remember conversation context — if the user says "now show nonstop only" after a previous query, adjust accordingly
+- When unsure between RECOMMEND and SQL, prefer RECOMMEND if the user is asking for suggestions/advice
 
 DATABASE SCHEMA (ticketmeta09):
 
@@ -880,6 +904,109 @@ def _run_query_with_timeout(sql, timeout_seconds=120):
     return result["cols"], result["rows"]
 
 
+# ===========================================================================
+# SMART RECOMMENDATION ENGINE (SQL-based scoring — fast, no ML training)
+# ===========================================================================
+
+def _get_als_recommendations(origin, budget=None, nonstop_only=False, limit=10):
+    """Get smart destination recommendations using SQL-based popularity scoring.
+    Score = log(flightCount+1) * affordability * nonstopBonus * airlineDiversity
+    Fast single-query approach — no heavy ML model training needed.
+    """
+    import math
+
+    origin = origin.upper()
+    tbl = get_flight_table()
+
+    # Check cache first
+    cache_key = f"recs_{origin}_{budget}_{nonstop_only}_{limit}"
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
+
+    nonstop_filter = "AND isNonStop = 'True'" if nonstop_only else ""
+    budget_filter = f"HAVING MIN(CAST(totalFare AS DOUBLE)) <= {float(budget)}" if budget else ""
+
+    sql = f"""
+        SELECT destinationAirport,
+               ROUND(MIN(CAST(totalFare AS DOUBLE)),2) AS minFare,
+               ROUND(AVG(CAST(totalFare AS DOUBLE)),2) AS avgFare,
+               COUNT(*) AS flightCount,
+               SUM(CASE WHEN isNonStop='True' THEN 1 ELSE 0 END) AS nonstopCount,
+               COUNT(DISTINCT segmentsAirlineName) AS airlineCount,
+               ROUND(AVG(CAST(totalTravelDistance AS DOUBLE)),0) AS avgDistance
+        FROM {tbl}
+        WHERE startingAirport = '{origin}'
+          AND totalFare IS NOT NULL AND CAST(totalFare AS DOUBLE) > 0
+          {nonstop_filter}
+        GROUP BY destinationAirport
+        {budget_filter}
+        ORDER BY COUNT(*) DESC
+        LIMIT {limit * 3}
+    """
+
+    try:
+        _, rows = run_query(sql)
+    except Exception as e:
+        return {"error": f"Query error: {str(e)}"}
+
+    if not rows:
+        return {"error": f"No flights found from {origin}. Try major airports like ATL, LAX, JFK, ORD, SFO, MIA."}
+
+    data = [clean_row(r) for r in rows]
+
+    # Compute smart scores
+    max_fare = max(r.get("avgFare", 1) or 1 for r in data)
+    for r in data:
+        fc = r.get("flightCount", 1) or 1
+        avg_f = r.get("avgFare", 1) or 1
+        ns = r.get("nonstopCount", 0) or 0
+        ac = r.get("airlineCount", 1) or 1
+        popularity = math.log(fc + 1)
+        affordability = max_fare / max(avg_f, 1)
+        nonstop_bonus = 1.0 + (ns / max(fc, 1)) * 0.5
+        diversity = 1.0 + math.log(ac + 1) * 0.3
+        r["alsScore"] = round(popularity * affordability * nonstop_bonus * diversity, 2)
+        r["origin"] = origin
+        r["city"] = AIRPORT_CITIES.get(r.get("destinationAirport", ""), r.get("destinationAirport", ""))
+
+    # Sort by score and take top N
+    data.sort(key=lambda x: x.get("alsScore", 0), reverse=True)
+    recommendations = data[:limit]
+
+    result = {
+        "origin": origin,
+        "recommendations": recommendations,
+        "model": "Smart Route Scoring",
+        "note": f"Scoring based on popularity, affordability, nonstop availability & airline diversity"
+    }
+    cache_set(cache_key, result)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Standalone recommendation endpoint
+# GET /api/recommend?origin=ATL&budget=500&nonstop=false&limit=10
+# ---------------------------------------------------------------------------
+@app.route("/api/recommend")
+def recommend():
+    origin = request.args.get("origin", "").upper()
+    budget = request.args.get("budget", None)
+    nonstop = request.args.get("nonstop", "false").lower() == "true"
+    limit = int(request.args.get("limit", 10))
+
+    if not origin:
+        return jsonify({"error": "origin is required"}), 400
+
+    try:
+        result = _get_als_recommendations(origin, budget=budget, nonstop_only=nonstop, limit=limit)
+        if "error" in result:
+            return jsonify(result), 400
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # ---------- SSE streaming endpoint (primary) ----------
 @app.route("/api/chatbot/stream", methods=["POST"])
 def chatbot_stream():
@@ -909,6 +1036,57 @@ def chatbot_stream():
         if raw.startswith("CHAT:"):
             chat_msg = raw[5:].strip()
             yield f"data: {json.dumps({'type': 'answer', 'answer': chat_msg, 'sql': None, 'results': None})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
+
+        # Phase 2b — check if it's a recommendation request
+        if raw.startswith("RECOMMEND:"):
+            rec_raw = raw[10:].strip()
+            yield f"data: {json.dumps({'type': 'status', 'message': 'Running ALS recommendation engine...'})}\n\n"
+            try:
+                params = json.loads(rec_raw)
+                origin = params.get("origin", "")
+                budget = params.get("budget", None)
+                nonstop = params.get("nonstop", False)
+                limit = params.get("limit", 10)
+
+                if not origin:
+                    yield f"data: {json.dumps({'type': 'answer', 'answer': 'I need an origin airport to make recommendations. Which airport are you flying from? (e.g., ATL, LAX, JFK)', 'sql': None, 'results': None})}\n\n"
+                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                    return
+
+                result = _get_als_recommendations(origin, budget=budget, nonstop_only=nonstop, limit=limit)
+
+                if "error" in result:
+                    yield f"data: {json.dumps({'type': 'answer', 'answer': result['error'], 'sql': None, 'results': None})}\n\n"
+                else:
+                    recs = result.get("recommendations", [])
+                    prefs = params.get("preferences", "")
+                    budget_str = f" under ${budget}" if budget else ""
+                    nonstop_str = " (nonstop only)" if nonstop else ""
+
+                    summary = f"🎯 **ALS Recommendations from {origin}**{budget_str}{nonstop_str}\n"
+                    summary += f"_Powered by Spark MLlib Collaborative Filtering on {result.get('note', 'route patterns')}_\n\n"
+
+                    if recs:
+                        for i, r in enumerate(recs, 1):
+                            dest = r.get("destinationAirport", "?")
+                            city = r.get("city", dest)
+                            min_f = r.get("minFare", "?")
+                            avg_f = r.get("avgFare", "?")
+                            cnt = r.get("flightCount", 0)
+                            ns = r.get("nonstopCount", 0)
+                            als = r.get("alsScore", 0)
+                            airlines = r.get("airlineCount", 0)
+                            summary += f"**{i}. {dest}** ({city}) — from **${min_f}** (avg ${avg_f}) | {cnt} flights | {ns} nonstop | {airlines} airlines | Score: {als}\n"
+                    else:
+                        summary += "No recommendations found matching your criteria. Try a different airport or relax your filters."
+
+                    yield f"data: {json.dumps({'type': 'recommendation', 'answer': summary, 'recommendations': recs, 'origin': origin, 'model': result.get('model', 'ALS')})}\n\n"
+            except json.JSONDecodeError:
+                yield f"data: {json.dumps({'type': 'answer', 'answer': 'I want to recommend destinations for you! Which airport are you flying from?', 'sql': None, 'results': None})}\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'type': 'error', 'message': f'Recommendation error: {str(e)}'})}\n\n"
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
             return
 
@@ -961,6 +1139,23 @@ def chatbot():
 
         if raw.startswith("CHAT:"):
             return jsonify({"answer": raw[5:].strip(), "sql": None, "results": None})
+
+        if raw.startswith("RECOMMEND:"):
+            try:
+                params = json.loads(raw[10:].strip())
+                origin = params.get("origin", "")
+                result = _get_als_recommendations(
+                    origin, budget=params.get("budget"), nonstop_only=params.get("nonstop", False), limit=params.get("limit", 10)
+                )
+                if "error" in result:
+                    return jsonify({"answer": result["error"], "sql": None, "results": None})
+                recs = result.get("recommendations", [])
+                summary = f"🎯 ALS Recommendations from {origin}\n"
+                for i, r in enumerate(recs, 1):
+                    summary += f"{i}. {r.get('destinationAirport','?')} ({r.get('city','')}) — from ${r.get('minFare','?')} | {r.get('flightCount',0)} flights\n"
+                return jsonify({"answer": summary, "sql": None, "results": recs, "type": "recommendation"})
+            except Exception as e:
+                return jsonify({"answer": f"Recommendation error: {str(e)}", "sql": None, "results": None})
 
         sql = _clean_sql(raw)
 
