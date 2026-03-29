@@ -1,14 +1,14 @@
 -- ============================================================================
--- STEP 1.4: EXTERNAL TABLE - itineraries (Main Fact Table ~30GB)
--- Run: hive -f 04_ext_itineraries.hql
+-- EXTERNAL TABLE: ext_itineraries (Main Fact Table ~82M rows, ~30GB CSV)
+-- Source: Expedia/ITA Matrix scraped flight data
+-- Run: hive -f 01_ext_itineraries.hql
 -- ============================================================================
 
 USE ticketmeta09;
 
 DROP TABLE IF EXISTS ext_itineraries;
 
-CREATE EXTERNAL TABLE ext_itineraries
-(
+CREATE EXTERNAL TABLE ext_itineraries (
     legId                              STRING,
     searchDate                         STRING,
     flightDate                         STRING,
