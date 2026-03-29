@@ -94,7 +94,7 @@ webapp/
 - **Hadoop Cluster** with Hive & Spark (3-node minimum)
 - **Node.js** 16+ (for React frontend)
 - **Python** 3.8+ with `pip`
-- **OpenAI API Key** (optional, for chatbot)
+- **Deepseek API Key** (optional, for chatbot)
 
 ### 1. Backend — Hadoop VM (192.168.56.101)
 
