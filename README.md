@@ -94,7 +94,7 @@ webapp/
 - **Hadoop Cluster** with Hive & Spark (3-node minimum)
 - **Node.js** 16+ (for React frontend)
 - **Python** 3.8+ with `pip`
-- **Deepseek API Key** (optional, for chatbot)
+- **Deepseek API Key** (for chatbot)
 
 ### 1. Backend — Hadoop VM (192.168.56.101)
 
@@ -109,7 +109,7 @@ ssh vboxuser@192.168.56.101
 pip install flask flask-cors pyhive thrift openai
 
 # (Optional) Set OpenAI API key for chatbot
-export OPENAI_API_KEY="sk-your-key-here"
+export DEEPSEEK_API_KEY="sk-your-key-here"
 
 # Start the Flask API with Spark
 spark-submit --master yarn flask_api.py
